@@ -84,6 +84,16 @@ export default function FeaturesPanel() {
                     </a>
                     
                     <a
+                      href="/notebook"
+                      className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        Lab Notebook
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </a>
+                    
+                    <a
                       href="/marketplace"
                       className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors"
                     >
@@ -109,6 +119,26 @@ export default function FeaturesPanel() {
                     >
                       <span className="text-sm font-medium text-gray-900 dark:text-white">
                         Safety Training
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </a>
+                    
+                    <a
+                      href="/curriculum"
+                      className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        Curriculum
+                      </span>
+                      <ChevronRight className="h-4 w-4 text-gray-400" />
+                    </a>
+                    
+                    <a
+                      href="/collaborate"
+                      className="flex items-center justify-between p-3 bg-white dark:bg-gray-700 rounded-lg hover:bg-blue-50 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <span className="text-sm font-medium text-gray-900 dark:text-white">
+                        Collaborate
                       </span>
                       <ChevronRight className="h-4 w-4 text-gray-400" />
                     </a>

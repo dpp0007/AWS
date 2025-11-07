@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { 
-  Trophy, Target, BookOpen, Users, BarChart3, ShoppingBag, 
+import {
+  Trophy, Target, BookOpen, Users, BarChart3, ShoppingBag,
   Shield, GraduationCap, Globe, Beaker, Microscope, Atom,
   Video, GitBranch, Wifi, Package, Zap, ArrowLeft
 } from 'lucide-react'
@@ -167,11 +167,11 @@ const features = [
 
 export default function FeaturesPage() {
   const [filter, setFilter] = useState<'all' | 'active' | 'coming-soon'>('all')
-  
-  const filteredFeatures = features.filter(f => 
+
+  const filteredFeatures = features.filter(f =>
     filter === 'all' || f.status === filter
   )
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-950 dark:via-slate-900 dark:to-gray-900">
       {/* Header */}
@@ -185,35 +185,32 @@ export default function FeaturesPage() {
               <ArrowLeft className="h-5 w-5" />
               <span>Back to Home</span>
             </Link>
-            
+
             <div className="flex space-x-2">
               <button
                 onClick={() => setFilter('all')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  filter === 'all'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                }`}
+                className={`px-4 py-2 rounded-lg transition-colors ${filter === 'all'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  }`}
               >
                 All
               </button>
               <button
                 onClick={() => setFilter('active')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  filter === 'active'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                }`}
+                className={`px-4 py-2 rounded-lg transition-colors ${filter === 'active'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  }`}
               >
                 Active
               </button>
               <button
                 onClick={() => setFilter('coming-soon')}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  filter === 'coming-soon'
-                    ? 'bg-orange-600 text-white'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                }`}
+                className={`px-4 py-2 rounded-lg transition-colors ${filter === 'coming-soon'
+                  ? 'bg-orange-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                  }`}
               >
                 Coming Soon
               </button>
@@ -221,7 +218,7 @@ export default function FeaturesPage() {
           </div>
         </div>
       </header>
-      
+
       {/* Hero */}
       <div className="max-w-7xl mx-auto px-6 py-12">
         <motion.div
@@ -236,7 +233,7 @@ export default function FeaturesPage() {
             Explore all the powerful features that make Virtual Chemistry Lab the most comprehensive online chemistry platform
           </p>
         </motion.div>
-        
+
         {/* Features Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredFeatures.map((feature, index) => (
@@ -250,13 +247,12 @@ export default function FeaturesPage() {
                 href={feature.path}
                 className={`block h-full ${feature.status === 'coming-soon' ? 'pointer-events-none' : ''}`}
               >
-                <div className={`h-full bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-blue-500 ${
-                  feature.status === 'coming-soon' ? 'opacity-60' : ''
-                }`}>
+                <div className={`h-full bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-transparent hover:border-blue-500 ${feature.status === 'coming-soon' ? 'opacity-60' : ''
+                  }`}>
                   <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-4`}>
                     <feature.icon className="h-6 w-6 text-white" />
                   </div>
-                  
+
                   <div className="flex items-center justify-between mb-2">
                     <h3 className="text-xl font-bold text-gray-900 dark:text-white">
                       {feature.title}
@@ -272,7 +268,7 @@ export default function FeaturesPage() {
                       </span>
                     )}
                   </div>
-                  
+
                   <p className="text-gray-600 dark:text-gray-400">
                     {feature.description}
                   </p>
@@ -281,7 +277,7 @@ export default function FeaturesPage() {
             </motion.div>
           ))}
         </div>
-        
+
         {/* Stats */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -297,7 +293,7 @@ export default function FeaturesPage() {
               Active Features
             </div>
           </div>
-          
+
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 text-center">
             <div className="text-4xl font-bold text-orange-600 mb-2">
               {features.filter(f => f.status === 'coming-soon').length}
@@ -306,7 +302,7 @@ export default function FeaturesPage() {
               Coming Soon
             </div>
           </div>
-          
+
           <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 text-center">
             <div className="text-4xl font-bold text-green-600 mb-2">
               {features.length}
