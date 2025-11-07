@@ -22,6 +22,12 @@ export default function HomePage() {
               </h1>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-4 relative z-50">
+              <Link
+                href="/features"
+                className="hidden sm:flex items-center space-x-2 px-4 py-2 text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              >
+                <span>Features</span>
+              </Link>
               <AuthButton />
             </div>
           </div>
