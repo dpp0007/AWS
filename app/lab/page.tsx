@@ -10,6 +10,7 @@ import ChemicalShelf from '@/components/ChemicalShelf'
 import ReactionPanel from '@/components/ReactionPanel'
 import ExperimentControls from '@/components/ExperimentControls'
 import EquipmentPanel from '@/components/EquipmentPanel'
+import ModernNavbar from '@/components/ModernNavbar'
 import { useDragScroll } from '@/hooks/useDragScroll'
 import { useAuth } from '@/contexts/AuthContext'
 import { Experiment, ReactionResult } from '@/types/chemistry'
@@ -60,10 +61,10 @@ export default function LabPage() {
   // Show loading while checking authentication
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 flex items-center justify-center">
         <div className="text-center">
           <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+          <p className="text-gray-300">Loading...</p>
         </div>
       </div>
     )
@@ -147,42 +148,18 @@ export default function LabPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-950 dark:via-slate-900 dark:to-gray-900 overflow-auto">
-      
-      {/* Header */}
-      <header className="relative bg-white/90 dark:bg-slate-900/95 backdrop-blur-xl border-b border-gray-200/50 dark:border-slate-700/50 sticky top-0 z-40 shadow-lg">
-        
-        <div className="relative max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4">
-          <div className="flex items-center justify-between">
-            {/* Left Section: Back Button */}
-            <div className="flex items-center">
-              <Link
-                href="/"
-                onClick={(e) => {
-                  e.preventDefault()
-                  router.push('/')
-                }}
-                className="flex items-center justify-center p-2 sm:p-2.5 text-gray-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-white hover:bg-blue-50 dark:hover:bg-white/10 rounded-xl transition-all duration-300 group backdrop-blur-sm border border-gray-200/50 dark:border-white/10 hover:border-blue-200 dark:hover:border-white/20 relative z-50 touch-manipulation"
-                style={{ pointerEvents: 'auto' }}
-              >
-                <ArrowLeft className="h-5 w-5 sm:h-5 sm:w-5 group-hover:-translate-x-1 transition-transform duration-300" />
-              </Link>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 relative overflow-hidden">
+      {/* Animated background */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute w-96 h-96 bg-blue-500/20 rounded-full blur-3xl -top-48 -left-48 animate-pulse"></div>
+        <div className="absolute w-96 h-96 bg-purple-500/20 rounded-full blur-3xl top-1/2 right-0 animate-pulse delay-1000"></div>
+        <div className="absolute w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl bottom-0 left-1/3 animate-pulse delay-2000"></div>
+      </div>
 
-            {/* Right Section: Controls */}
-            <div className="flex items-center">
-              <ExperimentControls 
-                onClear={clearExperiment}
-                hasExperiment={!!currentExperiment}
-                currentExperiment={currentExperiment}
-                reactionResult={reactionResult}
-              />
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Modern Navbar */}
+      <ModernNavbar />
 
-      <div className="max-w-[1600px] mx-auto px-3 sm:px-6 py-3 sm:py-6">
+      <div className="relative z-10 max-w-[1600px] mx-auto px-3 sm:px-6 py-3 sm:py-6">
         {/* Mobile Scroll Hint - Only visible on mobile */}
         <div className="lg:hidden mb-3 text-center">
           <motion.div

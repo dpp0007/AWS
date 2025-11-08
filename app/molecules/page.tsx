@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowLeft, Atom, Plus, Trash2, RotateCw, ZoomIn, ZoomOut } from 'lucide-react'
+import ModernNavbar from '@/components/ModernNavbar'
 
 interface Atom {
   id: string
@@ -178,36 +179,24 @@ export default function MoleculesPage() {
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-950 dark:via-slate-900 dark:to-gray-900">
-      {/* Header */}
-      <header className="bg-white/90 dark:bg-slate-900/95 backdrop-blur-xl border-b border-gray-200/50 dark:border-slate-700/50 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <Link
-              href="/lab"
-              className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              <span>Back to Lab</span>
-            </Link>
-            
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-              <Atom className="h-6 w-6 mr-2 text-purple-600" />
-              Molecular Modeling
-            </h1>
-            
-            <div className="w-24"></div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 relative overflow-hidden">
+      {/* Animated background */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute w-96 h-96 bg-blue-500/20 rounded-full blur-3xl -top-48 -left-48 animate-pulse"></div>
+        <div className="absolute w-96 h-96 bg-purple-500/20 rounded-full blur-3xl top-1/2 right-0 animate-pulse delay-1000"></div>
+        <div className="absolute w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl bottom-0 left-1/3 animate-pulse delay-2000"></div>
+      </div>
+
+      {/* Modern Navbar */}
+      <ModernNavbar />
       
-      <div className="max-w-7xl mx-auto px-6 py-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar */}
           <div className="lg:col-span-1 space-y-6">
             {/* Element Selector */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-lg">
+              <h2 className="text-lg font-bold text-white mb-4">
                 Elements
               </h2>
               <div className="grid grid-cols-2 gap-2">
@@ -244,8 +233,8 @@ export default function MoleculesPage() {
             </div>
             
             {/* Common Molecules */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-lg">
+              <h2 className="text-lg font-bold text-white mb-4">
                 Common Molecules
               </h2>
               <div className="space-y-2">
@@ -269,11 +258,11 @@ export default function MoleculesPage() {
           
           {/* Main Viewer */}
           <div className="lg:col-span-3">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg">
+            <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-6 shadow-lg">
               {/* Controls */}
               <div className="flex items-center justify-between mb-6">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                  <h2 className="text-xl font-bold text-white">
                     {moleculeName}
                   </h2>
                   {atoms.length > 0 && (

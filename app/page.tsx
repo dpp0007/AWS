@@ -3,6 +3,7 @@
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { Atom, Beaker, TestTube, Zap, Users, Shield, Sparkles, ArrowRight, Play, Check } from 'lucide-react'
+import ModernNavbar from '@/components/ModernNavbar'
 import AuthButton from '@/components/AuthButton'
 
 export default function HomePage() {
@@ -15,41 +16,8 @@ export default function HomePage() {
         <div className="absolute w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl bottom-0 left-1/3 animate-pulse delay-2000"></div>
       </div>
 
-      {/* Header */}
-      <header className="relative z-50 border-b border-white/10 backdrop-blur-xl bg-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl blur-lg opacity-75"></div>
-                <div className="relative p-2 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl">
-                  <Atom className="h-8 w-8 text-white" />
-                </div>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">
-                  ChemLab AI
-                </h1>
-                <p className="text-xs text-blue-300">Virtual Chemistry Laboratory</p>
-              </div>
-            </div>
-            
-            <nav className="hidden md:flex items-center space-x-8">
-              <Link href="/features" className="text-sm text-gray-300 hover:text-white transition-colors">
-                Features
-              </Link>
-              <Link href="/lab" className="text-sm text-gray-300 hover:text-white transition-colors">
-                Lab
-              </Link>
-              <Link href="/quiz" className="text-sm text-gray-300 hover:text-white transition-colors">
-                Quiz
-              </Link>
-            </nav>
-            
-            <AuthButton />
-          </div>
-        </div>
-      </header>
+      {/* Modern Navbar */}
+      <ModernNavbar />
 
       {/* Hero Section */}
       <section className="relative z-10 pt-20 pb-32 px-4 sm:px-6 lg:px-8">
@@ -218,6 +186,78 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Infinite Scrolling Carousel */}
+      <section className="relative z-10 py-12 overflow-hidden">
+        <div className="mb-8 text-center">
+          <h3 className="text-2xl font-bold text-white mb-2">Trusted by Students Worldwide</h3>
+          <p className="text-gray-400">Explore our comprehensive chemistry features</p>
+        </div>
+        
+        {/* Scrolling Row 1 - Left to Right */}
+        <div className="relative mb-6">
+          <div className="flex animate-scroll-right">
+            {[...Array(2)].map((_, setIndex) => (
+              <div key={setIndex} className="flex space-x-6 px-3">
+                {[
+                  { emoji: '🧪', text: 'Test Tubes', color: 'from-blue-500 to-cyan-500' },
+                  { emoji: '⚗️', text: 'Beakers', color: 'from-purple-500 to-pink-500' },
+                  { emoji: '🔬', text: 'Microscope', color: 'from-green-500 to-emerald-500' },
+                  { emoji: '⚛️', text: 'Molecules', color: 'from-orange-500 to-red-500' },
+                  { emoji: '🌡️', text: 'Temperature', color: 'from-yellow-500 to-orange-500' },
+                  { emoji: '💧', text: 'Solutions', color: 'from-cyan-500 to-blue-500' },
+                  { emoji: '🔥', text: 'Reactions', color: 'from-red-500 to-pink-500' },
+                  { emoji: '⚡', text: 'Energy', color: 'from-yellow-400 to-orange-400' }
+                ].map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex-shrink-0 w-48 h-32 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group"
+                  >
+                    <div className={`text-4xl mb-3 group-hover:scale-110 transition-transform duration-300`}>
+                      {item.emoji}
+                    </div>
+                    <div className={`text-lg font-semibold bg-gradient-to-r ${item.color} bg-clip-text text-transparent`}>
+                      {item.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Scrolling Row 2 - Right to Left */}
+        <div className="relative">
+          <div className="flex animate-scroll-left">
+            {[...Array(2)].map((_, setIndex) => (
+              <div key={setIndex} className="flex space-x-6 px-3">
+                {[
+                  { emoji: '📊', text: 'Analytics', color: 'from-indigo-500 to-purple-500' },
+                  { emoji: '🎯', text: 'Precision', color: 'from-pink-500 to-rose-500' },
+                  { emoji: '🧬', text: 'DNA Models', color: 'from-teal-500 to-cyan-500' },
+                  { emoji: '💎', text: 'Crystals', color: 'from-blue-400 to-indigo-400' },
+                  { emoji: '🌈', text: 'Spectrum', color: 'from-purple-400 to-pink-400' },
+                  { emoji: '🔋', text: 'Batteries', color: 'from-green-400 to-emerald-400' },
+                  { emoji: '🧲', text: 'Magnetism', color: 'from-red-400 to-orange-400' },
+                  { emoji: '💫', text: 'Catalysts', color: 'from-yellow-300 to-orange-300' }
+                ].map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex-shrink-0 w-48 h-32 bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-all duration-300 group"
+                  >
+                    <div className={`text-4xl mb-3 group-hover:scale-110 transition-transform duration-300`}>
+                      {item.emoji}
+                    </div>
+                    <div className={`text-lg font-semibold bg-gradient-to-r ${item.color} bg-clip-text text-transparent`}>
+                      {item.text}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/10 backdrop-blur-xl bg-white/5 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -229,7 +269,7 @@ export default function HomePage() {
               <span className="text-white font-bold">ChemLab AI</span>
             </div>
             <p className="text-gray-400 text-sm">
-              © 2024 ChemLab AI. All rights reserved.
+              
             </p>
           </div>
         </div>

@@ -245,7 +245,7 @@ export default function HomePage() {
               </span>
             </div>
             <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 text-center">
-              © 2024 Virtual Chemistry Lab. All rights reserved.
+              
             </p>
           </div>
         </div>

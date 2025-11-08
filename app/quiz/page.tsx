@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowLeft, Target, Trophy, Flame, CheckCircle, XCircle, Clock } from 'lucide-react'
+import ModernNavbar from '@/components/ModernNavbar'
 
 interface QuizQuestion {
   id: string
@@ -169,10 +170,10 @@ export default function QuizPage() {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-950 dark:via-slate-900 dark:to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400 text-lg">Generating AI-powered quiz questions...</p>
+          <p className="text-gray-300 text-lg">Generating AI-powered quiz questions...</p>
         </div>
       </div>
     )
@@ -189,41 +190,24 @@ export default function QuizPage() {
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-950 dark:via-slate-900 dark:to-gray-900">
-      {/* Header */}
-      <header className="bg-white/90 dark:bg-slate-900/95 backdrop-blur-xl border-b border-gray-200/50 dark:border-slate-700/50 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <Link
-              href="/lab"
-              className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
-            >
-              <ArrowLeft className="h-5 w-5" />
-              <span>Back to Lab</span>
-            </Link>
-            
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-              <Target className="h-6 w-6 mr-2 text-blue-600" />
-              Daily Reaction Quiz
-            </h1>
-            
-            <div className="flex items-center space-x-2 text-gray-600 dark:text-gray-300">
-              <Clock className="h-5 w-5" />
-              <span className={`font-mono font-bold ${timeLeft < 60 ? 'text-red-600' : ''}`}>
-                {formatTime(timeLeft)}
-              </span>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 relative overflow-hidden">
+      {/* Animated background */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute w-96 h-96 bg-blue-500/20 rounded-full blur-3xl -top-48 -left-48 animate-pulse"></div>
+        <div className="absolute w-96 h-96 bg-purple-500/20 rounded-full blur-3xl top-1/2 right-0 animate-pulse delay-1000"></div>
+        <div className="absolute w-96 h-96 bg-cyan-500/20 rounded-full blur-3xl bottom-0 left-1/3 animate-pulse delay-2000"></div>
+      </div>
+
+      {/* Modern Navbar */}
+      <ModernNavbar />
       
-      <div className="max-w-4xl mx-auto px-6 py-8">
+      <div className="relative z-10 max-w-4xl mx-auto px-6 py-8">
         {quizCompleted ? (
-          /* Results Screen */
+          // Results Screen
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg"
+            className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-lg"
           >
             <div className="text-center mb-8">
               <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4 ${
@@ -294,12 +278,12 @@ export default function QuizPage() {
             </div>
           </motion.div>
         ) : (
-          /* Quiz Screen */
+          // Quiz Screen
           <motion.div
             key={currentQuestion}
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
-            className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-lg"
+            className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl p-8 shadow-lg"
           >
             {/* Progress */}
             <div className="mb-8">
