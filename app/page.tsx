@@ -191,8 +191,8 @@ export default function HomePage() {
           <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border border-white/20 rounded-3xl p-12 hover:border-white/40 transition-all duration-300">
             <div className="grid md:grid-cols-4 gap-8 text-center">
               {[
-                { value: '10K+', label: 'Active Users' },
-                { value: '50K+', label: 'Experiments Run' },
+                { value: '2+', label: 'Active Users' },
+                { value: '5+', label: 'Experiments Run' },
                 { value: '99.9%', label: 'Uptime' },
                 { value: '4.9/5', label: 'User Rating' }
               ].map((stat, index) => (
