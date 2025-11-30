@@ -23,7 +23,7 @@ export default function ModernNavbar() {
   const pathname = usePathname()
 
   return (
-    <header className="sticky top-0 z-50 w-full py-3">
+    <header className="sticky top-0 z-[100] w-full py-3">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Pill-shaped container with fancy border */}
         <div className="relative h-16">
@@ -101,6 +101,9 @@ export default function ModernNavbar() {
                     <Link
                       key={item.name}
                       href={item.path}
+                      onClick={(e) => {
+                        console.log('Navbar link clicked:', item.name, item.path)
+                      }}
                       className={`relative px-4 py-2.5 text-sm font-medium transition-all rounded-full whitespace-nowrap ${isActive
                         ? 'text-white bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-400/30'
                         : 'text-gray-300 hover:text-white hover:bg-white/10'
@@ -130,7 +133,7 @@ export default function ModernNavbar() {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -10 }}
-          className="lg:hidden mt-2 mx-4 sm:mx-6 lg:mx-8 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border-2 border-white/20 rounded-3xl shadow-2xl overflow-hidden"
+          className="lg:hidden mt-2 mx-4 sm:mx-6 lg:mx-8 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border-2 border-white/20 rounded-3xl shadow-2xl overflow-hidden relative z-[100]"
         >
           <div className="px-4 py-3 space-y-1">
             {navItems.map((item) => {

@@ -36,15 +36,19 @@ export default function LabTable({ onReaction, reactionResult, isReacting, onAdd
     isOpen: false
   })
 
-  const addTestTube = () => {
-    const newId = `tube-${testTubes.length + 1}`
-    setTestTubes([...testTubes, { id: newId, contents: [] }])
-  }
+  const addTestTube = useCallback(() => {
+    setTestTubes(prev => {
+      const newId = `tube-${prev.length + 1}`
+      return [...prev, { id: newId, contents: [] }]
+    })
+  }, [])
 
-  const addBeaker = () => {
-    const newId = `beaker-${beakers.length + 1}`
-    setBeakers([...beakers, { id: newId, contents: [] }])
-  }
+  const addBeaker = useCallback(() => {
+    setBeakers(prev => {
+      const newId = `beaker-${prev.length + 1}`
+      return [...prev, { id: newId, contents: [] }]
+    })
+  }, [])
 
   const removeGlassware = (id: string, type: 'tube' | 'beaker') => {
     if (type === 'tube') {
@@ -140,7 +144,7 @@ export default function LabTable({ onReaction, reactionResult, isReacting, onAdd
   useEffect(() => {
     (window as any).__addTestTube = addTestTube;
     (window as any).__addBeaker = addBeaker;
-    
+
     return () => {
       delete (window as any).__addTestTube;
       delete (window as any).__addBeaker;
