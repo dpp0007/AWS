@@ -39,17 +39,30 @@ function AvatarModel({ speaking = false }: { speaking: boolean }) {
       }
       frameCount++
       
-      // BODY ANIMATIONS
+      // BODY ANIMATIONS - Subtle breathing only
       if (groupRef.current) {
-        groupRef.current.rotation.z = Math.sin(time) * 0.1
-        groupRef.current.scale.y = 1 + Math.sin(time * 2) * 0.03
-        groupRef.current.rotation.y = Math.sin(time * 0.5) * 0.08
+        // Very subtle breathing
+        groupRef.current.scale.y = 1 + Math.sin(time * 2) * 0.01
         
+        // Slight head tilt when speaking
         if (isSpeaking) {
-          groupRef.current.rotation.x = Math.sin(time * 8) * 0.08
+          groupRef.current.rotation.z = Math.sin(time * 3) * 0.03
+          groupRef.current.rotation.x = Math.sin(time * 2) * 0.02
         } else {
+          groupRef.current.rotation.z = 0
           groupRef.current.rotation.x = 0
         }
+      }
+      
+      // HAND GESTURES when speaking
+      if (nodes.LeftArm && nodes.RightArm && isSpeaking) {
+        // Animate arms/hands when speaking
+        nodes.LeftArm.rotation.z = Math.sin(time * 4) * 0.2
+        nodes.RightArm.rotation.z = -Math.sin(time * 4) * 0.2
+      } else if (nodes.LeftArm && nodes.RightArm) {
+        // Reset to neutral position
+        nodes.LeftArm.rotation.z = 0
+        nodes.RightArm.rotation.z = 0
       }
       
       // LIP SYNC - Animate jawOpen morph target
@@ -118,7 +131,7 @@ function AvatarModel({ speaking = false }: { speaking: boolean }) {
   }, [])
   
   return (
-    <group ref={groupRef} {...{ dispose: null }} position={[0, 0.5, 0]} scale={[1.8, 10, 1.8]}>
+    <group ref={groupRef} {...{ dispose: null }} position={[0, 0.5, 0]} scale={[1.2, 10, 1.2]}>
       <primitive object={nodes.Hips} />
       
       <skinnedMesh
