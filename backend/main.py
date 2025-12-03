@@ -15,9 +15,16 @@ from rag_pipeline import ChemistryRAG
 app = FastAPI(title="Chemistry Avatar API", version="1.0.0")
 
 # CORS configuration for Next.js frontend
+# Allow localhost and all network IPs for development
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:3001",
+        "*"  # Allow all origins for network access (change in production!)
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -39,10 +39,10 @@ function AvatarModel({ speaking = false }: { speaking: boolean }) {
       }
       frameCount++
       
-      // BODY ANIMATIONS - Subtle breathing only
+      // BODY ANIMATIONS - Barely visible breathing
       if (groupRef.current) {
-        // Very subtle breathing
-        groupRef.current.scale.y = 1 + Math.sin(time * 2) * 0.01
+        // Extremely subtle breathing
+        groupRef.current.scale.y = 1 + Math.sin(time * 2) * 0.003
         
         // Slight head tilt when speaking
         if (isSpeaking) {
@@ -92,8 +92,36 @@ function AvatarModel({ speaking = false }: { speaking: boolean }) {
         }
       }
       
-      // EYE BLINKING (random)
-      if (Math.random() < 0.01) {
+      // EYE BLINKING - Natural random blinks every 3-5 seconds
+      const blinkChance = 0.01 // ~2-3 seconds between blinks at 60fps
+      if (Math.random() < blinkChance) {
+        console.log('👁️ Blinking!')
+        
+        // Blink using Wolf3D_Head mesh (has all morph targets)
+        if (headRef.current?.morphTargetInfluences && headRef.current.morphTargetDictionary) {
+          const blinkLeftIndex = headRef.current.morphTargetDictionary['eyeBlinkLeft']
+          const blinkRightIndex = headRef.current.morphTargetDictionary['eyeBlinkRight']
+          
+          if (blinkLeftIndex !== undefined) {
+            headRef.current.morphTargetInfluences[blinkLeftIndex] = 1
+            setTimeout(() => {
+              if (headRef.current?.morphTargetInfluences) {
+                headRef.current.morphTargetInfluences[blinkLeftIndex] = 0
+              }
+            }, 150)
+          }
+          
+          if (blinkRightIndex !== undefined) {
+            headRef.current.morphTargetInfluences[blinkRightIndex] = 1
+            setTimeout(() => {
+              if (headRef.current?.morphTargetInfluences) {
+                headRef.current.morphTargetInfluences[blinkRightIndex] = 0
+              }
+            }, 150)
+          }
+        }
+        
+        // Also try on eye meshes
         if (eyeLeftRef.current?.morphTargetInfluences && eyeLeftRef.current.morphTargetDictionary) {
           const blinkIndex = eyeLeftRef.current.morphTargetDictionary['eyeBlinkLeft']
           if (blinkIndex !== undefined) {
@@ -102,7 +130,7 @@ function AvatarModel({ speaking = false }: { speaking: boolean }) {
               if (eyeLeftRef.current?.morphTargetInfluences) {
                 eyeLeftRef.current.morphTargetInfluences[blinkIndex] = 0
               }
-            }, 100)
+            }, 150)
           }
         }
         
@@ -114,7 +142,46 @@ function AvatarModel({ speaking = false }: { speaking: boolean }) {
               if (eyeRightRef.current?.morphTargetInfluences) {
                 eyeRightRef.current.morphTargetInfluences[blinkIndex] = 0
               }
-            }, 100)
+            }, 150)
+          }
+        }
+      }
+      
+      // EYE MOVEMENT - Subtle eye tracking (looking around naturally)
+      if (!isSpeaking) {
+        // When idle, eyes look around slowly
+        const eyeLookX = Math.sin(time * 0.3) * 0.15
+        const eyeLookY = Math.cos(time * 0.2) * 0.1
+        
+        if (eyeLeftRef.current?.morphTargetInfluences && eyeLeftRef.current.morphTargetDictionary) {
+          const lookLeftIndex = eyeLeftRef.current.morphTargetDictionary['eyeLookOutLeft']
+          const lookRightIndex = eyeLeftRef.current.morphTargetDictionary['eyeLookInLeft']
+          const lookUpIndex = eyeLeftRef.current.morphTargetDictionary['eyeLookUpLeft']
+          const lookDownIndex = eyeLeftRef.current.morphTargetDictionary['eyeLookDownLeft']
+          
+          if (lookLeftIndex !== undefined && lookRightIndex !== undefined) {
+            eyeLeftRef.current.morphTargetInfluences[lookLeftIndex] = Math.max(0, -eyeLookX)
+            eyeLeftRef.current.morphTargetInfluences[lookRightIndex] = Math.max(0, eyeLookX)
+          }
+          if (lookUpIndex !== undefined && lookDownIndex !== undefined) {
+            eyeLeftRef.current.morphTargetInfluences[lookUpIndex] = Math.max(0, eyeLookY)
+            eyeLeftRef.current.morphTargetInfluences[lookDownIndex] = Math.max(0, -eyeLookY)
+          }
+        }
+        
+        if (eyeRightRef.current?.morphTargetInfluences && eyeRightRef.current.morphTargetDictionary) {
+          const lookLeftIndex = eyeRightRef.current.morphTargetDictionary['eyeLookInRight']
+          const lookRightIndex = eyeRightRef.current.morphTargetDictionary['eyeLookOutRight']
+          const lookUpIndex = eyeRightRef.current.morphTargetDictionary['eyeLookUpRight']
+          const lookDownIndex = eyeRightRef.current.morphTargetDictionary['eyeLookDownRight']
+          
+          if (lookLeftIndex !== undefined && lookRightIndex !== undefined) {
+            eyeRightRef.current.morphTargetInfluences[lookLeftIndex] = Math.max(0, -eyeLookX)
+            eyeRightRef.current.morphTargetInfluences[lookRightIndex] = Math.max(0, eyeLookX)
+          }
+          if (lookUpIndex !== undefined && lookDownIndex !== undefined) {
+            eyeRightRef.current.morphTargetInfluences[lookUpIndex] = Math.max(0, eyeLookY)
+            eyeRightRef.current.morphTargetInfluences[lookDownIndex] = Math.max(0, -eyeLookY)
           }
         }
       }

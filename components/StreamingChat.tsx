@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Loader2, Sparkles, Bot, User, Mic, MicOff, Volume2, VolumeX } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { getBackendUrl, getWebSocketUrl, getBackendInfo } from '@/lib/api-config'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -44,6 +45,8 @@ export default function StreamingChat({
   const speechQueueRef = useRef<string[]>([])  // Queue of sentences to speak
   const isSpeakingRef = useRef(false)  // Track if currently speaking
   const spokenSentencesRef = useRef<Set<string>>(new Set())  // Track sentences already spoken
+  const [speechRecognitionSupported, setSpeechRecognitionSupported] = useState(true)
+  const [browserInfo, setBrowserInfo] = useState('')
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -57,17 +60,42 @@ export default function StreamingChat({
     }
   }, [])
 
+  // Detect browser
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const userAgent = navigator.userAgent.toLowerCase()
+      let browser = 'Unknown'
+      
+      if (userAgent.includes('edg')) {
+        browser = 'Edge'
+      } else if (userAgent.includes('chrome') && !userAgent.includes('edg')) {
+        browser = 'Chrome'
+      } else if (userAgent.includes('safari') && !userAgent.includes('chrome')) {
+        browser = 'Safari'
+      } else if (userAgent.includes('brave')) {
+        browser = 'Brave'
+      } else if (userAgent.includes('firefox')) {
+        browser = 'Firefox'
+      }
+      
+      setBrowserInfo(browser)
+      console.log('🌐 Detected browser:', browser)
+    }
+  }, [])
+
   // Initialize Speech Recognition
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
       
       if (!SpeechRecognition) {
-        console.error('Speech Recognition not supported in this browser')
+        console.error('❌ Speech Recognition not supported in this browser')
+        setSpeechRecognitionSupported(false)
         return
       }
       
-      console.log('Initializing Speech Recognition...')
+      setSpeechRecognitionSupported(true)
+      console.log('✅ Initializing Speech Recognition...')
       const recognition = new SpeechRecognition()
       recognition.continuous = true  // Keep listening
       recognition.interimResults = true  // Show partial results
@@ -320,6 +348,19 @@ export default function StreamingChat({
   const startListening = () => {
     console.log('🎤 Start listening clicked')
     
+    if (!speechRecognitionSupported) {
+      alert(`❌ Voice Input Not Supported in ${browserInfo}\n\n` +
+        `Speech recognition only works in:\n` +
+        `✅ Google Chrome\n` +
+        `✅ Microsoft Edge\n\n` +
+        `Currently not supported in:\n` +
+        `❌ Safari\n` +
+        `❌ Brave\n` +
+        `❌ Firefox\n\n` +
+        `Please switch to Chrome or Edge to use voice input, or type your questions instead.`)
+      return
+    }
+    
     if (!recognitionRef.current) {
       console.error('❌ Speech recognition not initialized')
       alert('Speech recognition is not available in your browser. Please use Chrome or Edge.')
@@ -375,6 +416,8 @@ export default function StreamingChat({
 
   // Initialize WebSocket connection
   useEffect(() => {
+    // Log backend configuration on mount
+    console.log('🌐 Backend Configuration:', getBackendInfo())
     connectWebSocket()
     
     return () => {
@@ -386,7 +429,9 @@ export default function StreamingChat({
     setConnectionStatus('connecting')
     
     try {
-      const ws = new WebSocket('ws://localhost:8000/ws')
+      const wsUrl = `${getWebSocketUrl()}/ws`
+      console.log('🔌 Connecting to WebSocket:', wsUrl)
+      const ws = new WebSocket(wsUrl)
       
       ws.onopen = () => {
         console.log('WebSocket connected')
@@ -489,7 +534,9 @@ export default function StreamingChat({
     } else {
       // Fallback to HTTP if WebSocket not available
       try {
-        const response = await fetch('http://localhost:8000/chat', {
+        const backendUrl = `${getBackendUrl()}/chat`
+        console.log('📡 Using HTTP fallback:', backendUrl)
+        const response = await fetch(backendUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -575,6 +622,16 @@ export default function StreamingChat({
             <Sparkles className="h-5 w-5 text-yellow-400" />
           </div>
         </div>
+        
+        {/* Browser Compatibility Notice */}
+        {!speechRecognitionSupported && (
+          <div className="mt-3 p-3 bg-yellow-500/20 border border-yellow-500/50 rounded-lg">
+            <p className="text-xs text-yellow-200">
+              ⚠️ <strong>{browserInfo}</strong> doesn't support voice input. 
+              Switch to <strong>Chrome</strong> or <strong>Edge</strong> for voice features, or type your questions.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Messages */}
@@ -657,13 +714,19 @@ export default function StreamingChat({
         <div className="flex space-x-2">
           <button
             onClick={isListening ? stopListening : startListening}
-            disabled={streaming || connectionStatus !== 'connected'}
+            disabled={streaming || connectionStatus !== 'connected' || !speechRecognitionSupported}
             className={`px-4 py-3 rounded-xl transition-all font-medium flex items-center space-x-2 ${
-              isListening 
+              !speechRecognitionSupported
+                ? 'bg-gray-500/50 text-gray-400 border border-gray-500/50 cursor-not-allowed'
+                : isListening 
                 ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse' 
                 : 'bg-white/10 hover:bg-white/20 text-white border border-white/20'
             }`}
-            title={isListening ? 'Stop listening' : 'Start voice input'}
+            title={
+              !speechRecognitionSupported 
+                ? `Voice input not supported in ${browserInfo}. Use Chrome or Edge.`
+                : isListening ? 'Stop listening' : 'Start voice input'
+            }
           >
             {isListening ? (
               <MicOff className="h-5 w-5" />

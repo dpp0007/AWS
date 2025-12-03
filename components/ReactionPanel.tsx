@@ -66,6 +66,68 @@ export default function ReactionPanel({ experiment, result, isLoading }: Reactio
             exit={{ opacity: 0, y: -20 }}
             className="space-y-6"
           >
+            {/* Active Equipment */}
+            {experiment?.equipment && experiment.equipment.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 rounded-xl p-6 border-2 border-orange-300 dark:border-orange-700 shadow-lg"
+              >
+                <div className="flex items-center space-x-2 mb-4">
+                  <div className="p-2 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg animate-pulse">
+                    <Zap className="h-5 w-5 text-white" />
+                  </div>
+                  <h3 className="font-bold text-orange-900 dark:text-orange-100">
+                    Active Lab Equipment
+                  </h3>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {experiment.equipment.map((eq, index) => (
+                    <motion.div
+                      key={index}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: index * 0.1 }}
+                      className="relative bg-white dark:bg-gray-800 p-3 rounded-lg border-2 border-orange-200 dark:border-orange-700 shadow-sm overflow-hidden"
+                    >
+                      {/* Animated background */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-orange-500/5 via-red-500/5 to-orange-500/5 animate-pulse"></div>
+                      
+                      <div className="relative flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-block w-2 h-2 bg-orange-500 rounded-full animate-pulse"></span>
+                          <span className="font-medium text-gray-900 dark:text-white text-sm">
+                            {eq.name}
+                          </span>
+                        </div>
+                        <span className="px-2 py-1 bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded-full text-xs font-bold animate-pulse">
+                          {eq.value} {eq.unit}
+                        </span>
+                      </div>
+                      
+                      {/* Activity bar */}
+                      <div className="relative mt-2 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <motion.div 
+                          className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full"
+                          animate={{ x: ['-100%', '100%'] }}
+                          transition={{ 
+                            duration: 2, 
+                            repeat: Infinity, 
+                            ease: "linear" 
+                          }}
+                        />
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
+                <div className="mt-3 p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                  <p className="text-xs text-orange-800 dark:text-orange-200 text-center">
+                    ⚡ Equipment settings are affecting this reaction
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
             {/* Reaction Equation */}
             <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
               <div className="flex items-center space-x-2 mb-3">

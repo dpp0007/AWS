@@ -33,11 +33,18 @@ export interface ChemicalContent {
   unit: 'ml' | 'g' | 'mol' | 'drops'
 }
 
+export interface EquipmentSetting {
+  name: string
+  value: number
+  unit: string
+}
+
 export interface Experiment {
   id?: string
   name: string
   chemicals: ChemicalContent[]
   glassware: Glassware[]
+  equipment?: EquipmentSetting[]
   timestamp?: Date
   userId?: string
 }

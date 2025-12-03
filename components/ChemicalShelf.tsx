@@ -152,14 +152,26 @@ function ChemicalCard({ chemical, onClick, onAddToTestTube }: ChemicalCardProps)
   const handleCardClick = (e: React.MouseEvent) => {
     // Don't trigger if clicking on the info button
     if ((e.target as HTMLElement).closest('button')) {
+      console.log('ChemicalCard: Info button clicked, ignoring')
       return
     }
+
+    console.log('ChemicalCard: Card clicked', {
+      hasCallback: !!onAddToTestTube,
+      chemical: chemical?.name,
+      chemicalObject: chemical
+    })
 
     if (onAddToTestTube && chemical && chemical.name) {
       console.log('ChemicalCard: Calling onAddToTestTube with chemical:', chemical.name)
       onAddToTestTube(chemical)
     } else {
-      console.error('ChemicalCard: Cannot add to test tube:', { onAddToTestTube, chemical })
+      console.error('ChemicalCard: Cannot add to test tube:', { 
+        onAddToTestTube: !!onAddToTestTube, 
+        chemical: chemical?.name,
+        hasName: !!chemical?.name
+      })
+      alert('Error: Cannot add chemical to test tube. Please check console for details.')
     }
   }
 

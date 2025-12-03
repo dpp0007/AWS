@@ -111,25 +111,33 @@ export default function LabTable({ onReaction, reactionResult, isReacting, onAdd
   }, [])
 
   const handleAddChemicalToFirstTestTube = useCallback((chemical: Chemical) => {
+    console.log('LabTable: handleAddChemicalToFirstTestTube called with:', chemical)
+    
     // Validate chemical object
     if (!chemical || typeof chemical !== 'object') {
-      console.warn('Invalid chemical object for test tube')
+      console.warn('LabTable: Invalid chemical object for test tube')
       return
     }
 
     if (!chemical.name || !chemical.formula) {
-      console.warn('Chemical missing required properties for test tube')
+      console.warn('LabTable: Chemical missing required properties for test tube', chemical)
       return
     }
 
     // Find the first test tube
     const firstTestTube = testTubes[0]
+    console.log('LabTable: First test tube:', firstTestTube)
+    
     if (firstTestTube) {
+      console.log('LabTable: Opening quantity modal for', chemical.name)
       setQuantityModal({
         chemical,
         glasswareId: firstTestTube.id,
         isOpen: true
       })
+    } else {
+      console.error('LabTable: No test tubes available!')
+      alert('Please add a test tube first!')
     }
   }, [testTubes])
 

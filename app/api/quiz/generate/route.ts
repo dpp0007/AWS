@@ -1,19 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!)
 
 export async function GET(request: NextRequest) {
   try {
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-exp',
-      generationConfig: {
-        temperature: 0.7,
-        topP: 0.95,
-        topK: 40,
-        maxOutputTokens: 2048,
-      }
-    })
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
     
     const timestamp = Date.now()
     const randomSeed = Math.random()
@@ -49,19 +38,65 @@ Make questions progressively harder. Include:
 
 Return ONLY valid JSON, no markdown or extra text.`
 
-    const result = await model.generateContent(prompt)
-    const response = await result.response
-    let text = response.text()
+    // Call Ollama backend
+    const response = await fetch(`${backendUrl}/chat`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: prompt,
+        context: 'Chemistry quiz generation',
+        chemicals: []
+      })
+    })
+
+    if (!response.ok) {
+      throw new Error(`Backend returned ${response.status}`)
+    }
+
+    // Read the streaming response
+    const reader = response.body?.getReader()
+    const decoder = new TextDecoder()
+    let fullText = ''
+
+    if (reader) {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        
+        const chunk = decoder.decode(value)
+        const lines = chunk.split('\n').filter(line => line.trim())
+        
+        for (const line of lines) {
+          try {
+            const data = JSON.parse(line)
+            if (data.token) {
+              fullText += data.token
+            }
+          } catch (e) {
+            // Ignore parse errors
+          }
+        }
+      }
+    }
     
     // Clean up the response
-    text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    let text = fullText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+    
+    // Try to extract JSON array from the response
+    const jsonMatch = text.match(/\[[\s\S]*\]/)
+    if (jsonMatch) {
+      text = jsonMatch[0]
+    }
     
     const questions = JSON.parse(text)
     
     return NextResponse.json({ 
       success: true,
       questions,
-      generatedAt: new Date().toISOString()
+      generatedAt: new Date().toISOString(),
+      source: 'ollama'
     })
   } catch (error) {
     console.error('Quiz generation error:', error)

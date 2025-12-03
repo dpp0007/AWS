@@ -18,17 +18,27 @@ export default function QuantityModal({ chemical, isOpen, onClose, onConfirm }: 
   const [unit, setUnit] = useState('ml')
 
   useEffect(() => {
+    console.log('QuantityModal: Props changed', {
+      isOpen,
+      chemical: chemical?.name,
+      hasChemical: !!chemical
+    })
     if (chemical) {
       setUnit(chemical.state === 'liquid' ? 'ml' : 'g')
       setAmount(chemical.state === 'liquid' ? 5 : 0.5)
     }
-  }, [chemical])
+  }, [chemical, isOpen])
 
   if (!chemical || !isOpen) {
     return null
   }
 
   const handleConfirm = () => {
+    console.log('QuantityModal: Confirming addition', {
+      chemical: chemical.name,
+      amount,
+      unit
+    })
     onConfirm(chemical, amount, unit)
     setAmount(1)
     setUnit('ml')

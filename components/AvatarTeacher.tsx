@@ -13,6 +13,10 @@ function AvatarModel({ speaking = false }: { speaking: boolean }) {
   const headBoneRef = useRef<THREE.Bone | THREE.Object3D | null>(null)
   const jawBoneRef = useRef<THREE.Bone | THREE.Object3D | null>(null)
   const eyeBoneRef = useRef<THREE.Bone | THREE.Object3D | null>(null)
+  const leftArmRef = useRef<THREE.Bone | THREE.Object3D | null>(null)
+  const rightArmRef = useRef<THREE.Bone | THREE.Object3D | null>(null)
+  const leftShoulderRef = useRef<THREE.Bone | THREE.Object3D | null>(null)
+  const rightShoulderRef = useRef<THREE.Bone | THREE.Object3D | null>(null)
   
   // Load the GLB model
   const { scene } = useGLTF('/avatar.glb')
@@ -70,6 +74,22 @@ function AvatarModel({ speaking = false }: { speaking: boolean }) {
         } else if (boneName.includes('eye')) {
           type = 'eye'
           if (!eyeBoneRef.current) eyeBoneRef.current = child
+        } else if (boneName.includes('leftarm') || boneName.includes('left_arm') || boneName.includes('leftupperarm')) {
+          type = 'leftArm'
+          leftArmRef.current = child
+          console.log('💪 Found LEFT ARM:', child.name)
+        } else if (boneName.includes('rightarm') || boneName.includes('right_arm') || boneName.includes('rightupperarm')) {
+          type = 'rightArm'
+          rightArmRef.current = child
+          console.log('💪 Found RIGHT ARM:', child.name)
+        } else if (boneName.includes('leftshoulder') || boneName.includes('left_shoulder')) {
+          type = 'leftShoulder'
+          leftShoulderRef.current = child
+          console.log('💪 Found LEFT SHOULDER:', child.name)
+        } else if (boneName.includes('rightshoulder') || boneName.includes('right_shoulder')) {
+          type = 'rightShoulder'
+          rightShoulderRef.current = child
+          console.log('💪 Found RIGHT SHOULDER:', child.name)
         }
         
         detectedBones.push({ bone: child, name: child.name, type })
@@ -111,6 +131,9 @@ function AvatarModel({ speaking = false }: { speaking: boolean }) {
     console.log('🎬 Starting requestAnimationFrame animation loop')
     let frameId: number
     let frameCount = 0
+    let nextBlinkTime = Date.now() + 2000 + Math.random() * 3000 // Random blink between 2-5 seconds
+    let isBlinking = false
+    let blinkStartTime = 0
     
     const animate = () => {
       if (!groupRef.current) {
@@ -119,6 +142,7 @@ function AvatarModel({ speaking = false }: { speaking: boolean }) {
       }
       
       const time = Date.now() * 0.001
+      const now = Date.now()
       const isSpeaking = speakingRef.current
       
       // Log every 60 frames
@@ -160,18 +184,98 @@ function AvatarModel({ speaking = false }: { speaking: boolean }) {
         }
       }
       
-      // MORPH TARGETS (lip sync)
+      // ARM ANIMATIONS - Fix T-pose and add gestures
+      // LEFT ARM - hanging naturally at side (close to thigh)
+      if (leftArmRef.current) {
+        if (isSpeaking) {
+          // Gentle hand gestures when speaking
+          leftArmRef.current.rotation.z = 0.8 + Math.sin(time * 2) * 0.2
+          leftArmRef.current.rotation.x = 0.3 + Math.sin(time * 1.5) * 0.15
+        } else {
+          // Arms hanging down at sides, close to thighs
+          leftArmRef.current.rotation.z = 0.7  // Rotate down more
+          leftArmRef.current.rotation.x = 0.2  // Slight forward
+        }
+      }
+      
+      // RIGHT ARM - hanging naturally at side (close to thigh)
+      if (rightArmRef.current) {
+        if (isSpeaking) {
+          // Gentle hand gestures when speaking (opposite phase)
+          rightArmRef.current.rotation.z = -0.8 + Math.sin(time * 2 + Math.PI) * 0.2
+          rightArmRef.current.rotation.x = 0.3 + Math.sin(time * 1.5 + Math.PI) * 0.15
+        } else {
+          // Arms hanging down at sides, close to thighs
+          rightArmRef.current.rotation.z = -0.7  // Rotate down more
+          rightArmRef.current.rotation.x = 0.2   // Slight forward
+        }
+      }
+      
+      // SHOULDERS - rotated down for natural hanging arms
+      if (leftShoulderRef.current) {
+        leftShoulderRef.current.rotation.z = 0.3   // Rotate shoulder down
+        leftShoulderRef.current.rotation.x = 0.1   // Slight forward
+      }
+      if (rightShoulderRef.current) {
+        rightShoulderRef.current.rotation.z = -0.3  // Rotate shoulder down
+        rightShoulderRef.current.rotation.x = 0.1   // Slight forward
+      }
+      
+      // NATURAL BLINKING SYSTEM
+      // Trigger a new blink at random intervals (3-6 seconds)
+      if (!isBlinking && now >= nextBlinkTime) {
+        isBlinking = true
+        blinkStartTime = now
+        console.log('👁️ Blink started')
+      }
+      
+      // Calculate blink value (smooth open -> close -> open)
+      let blinkValue = 0
+      if (isBlinking) {
+        const blinkDuration = 350 // 350ms total blink duration (much slower)
+        const elapsed = now - blinkStartTime
+        
+        if (elapsed < blinkDuration) {
+          // Smooth blink curve: 0 -> 1 -> 0
+          const progress = elapsed / blinkDuration
+          blinkValue = Math.sin(progress * Math.PI) // Smooth sine curve
+        } else {
+          // Blink finished
+          isBlinking = false
+          blinkValue = 0
+          // Schedule next blink (3-6 seconds from now)
+          nextBlinkTime = now + 3000 + Math.random() * 3000
+          console.log('👁️ Blink finished, next in', (nextBlinkTime - now) / 1000, 'seconds')
+        }
+      }
+      
+      // MORPH TARGETS (lip sync + blinking)
       morphTargetMeshes.forEach((mesh) => {
         if (!mesh.morphTargetInfluences || !mesh.morphTargetDictionary) return
         
+        // Apply blinking to eye meshes
+        const eyeBlinkLeftIndex = mesh.morphTargetDictionary['eyeBlinkLeft']
+        const eyeBlinkRightIndex = mesh.morphTargetDictionary['eyeBlinkRight']
+        
+        if (eyeBlinkLeftIndex !== undefined) {
+          mesh.morphTargetInfluences[eyeBlinkLeftIndex] = blinkValue
+        }
+        if (eyeBlinkRightIndex !== undefined) {
+          mesh.morphTargetInfluences[eyeBlinkRightIndex] = blinkValue
+        }
+        
+        // Lip sync when speaking
         if (isSpeaking) {
           const jawIndex = mesh.morphTargetDictionary['jawOpen']
           if (jawIndex !== undefined) {
             mesh.morphTargetInfluences[jawIndex] = Math.abs(Math.sin(time * 10)) * 0.8
           }
         } else {
-          // Reset all morph targets when not speaking
-          mesh.morphTargetInfluences.fill(0)
+          // Reset jaw when not speaking (but keep blink values)
+          const jawIndex = mesh.morphTargetDictionary['jawOpen']
+          if (jawIndex !== undefined) {
+            mesh.morphTargetInfluences[jawIndex] = 0
+          }
         }
       })
       
@@ -189,7 +293,7 @@ function AvatarModel({ speaking = false }: { speaking: boolean }) {
   
   return (
     <group ref={groupRef} position={[0, -1.2, 0]}>
-      <primitive object={clonedScene} scale={6} />
+      <primitive object={clonedScene} scale={4} />
     </group>
   )
 }

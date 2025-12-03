@@ -3,109 +3,14 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { ArrowLeft, Beaker, Flame, Droplet, Thermometer, Scale, Timer, Zap, Wind } from 'lucide-react'
+import { ArrowLeft, Beaker } from 'lucide-react'
 import ModernNavbar from '@/components/ModernNavbar'
-
-interface Equipment {
-  id: string
-  name: string
-  category: string
-  description: string
-  icon: any
-  color: string
-  inUse: boolean
-  temperature?: number
-  status?: string
-}
-
-const EQUIPMENT_LIST: Equipment[] = [
-  {
-    id: 'bunsen-burner',
-    name: 'Bunsen Burner',
-    category: 'Heating',
-    description: 'Gas burner for heating substances',
-    icon: Flame,
-    color: 'from-orange-500 to-red-500',
-    inUse: false,
-    temperature: 1500,
-    status: 'Off'
-  },
-  {
-    id: 'hot-plate',
-    name: 'Hot Plate',
-    category: 'Heating',
-    description: 'Electric heating plate with temperature control',
-    icon: Zap,
-    color: 'from-red-500 to-pink-500',
-    inUse: false,
-    temperature: 0,
-    status: 'Off'
-  },
-  {
-    id: 'centrifuge',
-    name: 'Centrifuge',
-    category: 'Separation',
-    description: 'Separates substances by density using centrifugal force',
-    icon: Wind,
-    color: 'from-blue-500 to-cyan-500',
-    inUse: false,
-    status: 'Ready'
-  },
-  {
-    id: 'ph-meter',
-    name: 'pH Meter',
-    category: 'Measurement',
-    description: 'Digital pH measurement device',
-    icon: Droplet,
-    color: 'from-green-500 to-emerald-500',
-    inUse: false,
-    status: 'Calibrated'
-  },
-  {
-    id: 'thermometer',
-    name: 'Digital Thermometer',
-    category: 'Measurement',
-    description: 'Precise temperature measurement',
-    icon: Thermometer,
-    color: 'from-purple-500 to-pink-500',
-    inUse: false,
-    temperature: 25,
-    status: 'Ready'
-  },
-  {
-    id: 'balance',
-    name: 'Analytical Balance',
-    category: 'Measurement',
-    description: 'High-precision weighing scale',
-    icon: Scale,
-    color: 'from-indigo-500 to-blue-500',
-    inUse: false,
-    status: 'Calibrated'
-  },
-  {
-    id: 'timer',
-    name: 'Lab Timer',
-    category: 'Timing',
-    description: 'Precise timing for reactions',
-    icon: Timer,
-    color: 'from-yellow-500 to-orange-500',
-    inUse: false,
-    status: 'Ready'
-  },
-  {
-    id: 'stirrer',
-    name: 'Magnetic Stirrer',
-    category: 'Mixing',
-    description: 'Stirs solutions using magnetic field',
-    icon: Wind,
-    color: 'from-teal-500 to-green-500',
-    inUse: false,
-    status: 'Off'
-  },
-]
+import { EQUIPMENT_CONFIG, Equipment } from '@/lib/equipment-config'
 
 export default function EquipmentPage() {
-  const [equipment, setEquipment] = useState<Equipment[]>(EQUIPMENT_LIST)
+  const [equipment, setEquipment] = useState<Equipment[]>(
+    EQUIPMENT_CONFIG.map(eq => ({ ...eq }))
+  )
   const [selectedEquipment, setSelectedEquipment] = useState<Equipment | null>(null)
   const [filterCategory, setFilterCategory] = useState<string>('all')
 
@@ -117,7 +22,11 @@ export default function EquipmentPage() {
 
   const toggleEquipment = (id: string) => {
     setEquipment(equipment.map(e =>
-      e.id === id ? { ...e, inUse: !e.inUse, status: e.inUse ? 'Off' : 'On' } : e
+      e.id === id ? { 
+        ...e, 
+        active: !e.active, 
+        status: e.active ? 'Off' : 'On' 
+      } : e
     ))
   }
 
@@ -134,6 +43,29 @@ export default function EquipmentPage() {
       <ModernNavbar />
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-8">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-8"
+        >
+          <Link
+            href="/lab"
+            className="inline-flex items-center space-x-2 text-gray-400 hover:text-white transition-colors mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Lab</span>
+          </Link>
+          
+          <h1 className="text-4xl sm:text-5xl font-bold mb-4">
+            <span className="bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 bg-clip-text text-transparent">
+              Lab Equipment
+            </span>
+          </h1>
+          <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+            Professional laboratory equipment for precise experiments and measurements
+          </p>
+        </motion.div>
         {/* Filter */}
         <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border border-white/20 rounded-3xl p-6 hover:border-white/40 transition-all duration-300 mb-6">
           <div className="flex flex-wrap gap-3">
@@ -167,42 +99,52 @@ export default function EquipmentPage() {
                   type: 'spring',
                   stiffness: 100
                 }}
-                className={`group relative bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border-2 rounded-3xl p-6 hover:border-white/40 transition-all duration-300 flex flex-col ${item.inUse
-                  ? 'border-green-500'
+                className={`group relative bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border-2 rounded-3xl p-6 hover:border-white/40 transition-all duration-300 flex flex-col ${item.active
+                  ? 'border-green-500 shadow-lg shadow-green-500/20'
                   : 'border-white/20'
                   }`}
               >
-                <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center mb-4 mx-auto`}>
+                <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${item.color} flex items-center justify-center mb-4 mx-auto ${
+                  item.active ? 'animate-pulse' : ''
+                }`}>
                   <Icon className="h-8 w-8 text-white" />
                 </div>
 
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white text-center mb-2">
+                <h3 className="text-lg font-bold text-white text-center mb-2">
                   {item.name}
                 </h3>
 
-                <p className="text-xs text-gray-600 dark:text-gray-400 text-center mb-3">
+                <p className="text-xs text-gray-400 text-center mb-3">
                   {item.description}
                 </p>
 
                 <div className="space-y-2 mb-4 flex-grow">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Category:</span>
-                    <span className="font-medium text-gray-900 dark:text-white">{item.category}</span>
+                    <span className="text-gray-400">Category:</span>
+                    <span className="font-medium text-white">{item.category}</span>
                   </div>
 
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Status:</span>
-                    <span className={`font-medium ${item.inUse ? 'text-green-600' : 'text-gray-600 dark:text-gray-400'
-                      }`}>
+                    <span className="text-gray-400">Status:</span>
+                    <span className={`font-medium ${item.active ? 'text-green-400' : 'text-gray-400'}`}>
                       {item.status}
                     </span>
                   </div>
 
-                  {item.temperature !== undefined && (
+                  {item.value !== undefined && (
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 dark:text-gray-400">Temp:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {item.inUse ? item.temperature : 0}°C
+                      <span className="text-gray-400">Setting:</span>
+                      <span className="font-medium text-white">
+                        {item.active ? item.value : 0} {item.unit}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {item.min !== undefined && item.max !== undefined && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Range:</span>
+                      <span className="font-medium text-gray-300">
+                        {item.min}-{item.max} {item.unit}
                       </span>
                     </div>
                   )}
@@ -210,12 +152,12 @@ export default function EquipmentPage() {
 
                 <button
                   onClick={() => toggleEquipment(item.id)}
-                  className={`w-full px-4 py-2 rounded-lg transition-colors mt-auto ${item.inUse
+                  className={`w-full px-4 py-2 rounded-lg transition-colors mt-auto ${item.active
                     ? 'bg-red-600 hover:bg-red-700 text-white'
                     : 'bg-green-600 hover:bg-green-700 text-white'
                     }`}
                 >
-                  {item.inUse ? 'Turn Off' : 'Turn On'}
+                  {item.active ? 'Turn Off' : 'Turn On'}
                 </button>
               </motion.div>
             )
@@ -224,33 +166,57 @@ export default function EquipmentPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-          <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl p-6 shadow-lg">
-            <div className="text-3xl font-bold text-blue-600 mb-2">
+          <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border border-white/20 rounded-3xl p-6 hover:border-white/40 transition-all">
+            <div className="text-3xl font-bold text-blue-400 mb-2">
               {equipment.length}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-sm text-gray-400">
               Total Equipment
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-            <div className="text-3xl font-bold text-green-600 mb-2">
-              {equipment.filter(e => e.inUse).length}
+          <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border border-white/20 rounded-3xl p-6 hover:border-white/40 transition-all">
+            <div className="text-3xl font-bold text-green-400 mb-2">
+              {equipment.filter(e => e.active).length}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
-              Currently In Use
+            <div className="text-sm text-gray-400">
+              Currently Active
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-lg">
-            <div className="text-3xl font-bold text-purple-600 mb-2">
+          <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border border-white/20 rounded-3xl p-6 hover:border-white/40 transition-all">
+            <div className="text-3xl font-bold text-purple-400 mb-2">
               {categories.length - 1}
             </div>
-            <div className="text-sm text-gray-600 dark:text-gray-400">
+            <div className="text-sm text-gray-400">
               Categories
             </div>
           </div>
         </div>
+        
+        {/* Info Banner */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-8 bg-gradient-to-r from-blue-500/20 to-purple-500/20 backdrop-blur-xl border border-blue-500/50 rounded-3xl p-6"
+        >
+          <div className="flex items-start space-x-4">
+            <Beaker className="h-6 w-6 text-blue-400 flex-shrink-0 mt-1" />
+            <div>
+              <h3 className="text-lg font-bold text-white mb-2">
+                Equipment Integration
+              </h3>
+              <p className="text-sm text-gray-300">
+                All equipment shown here is available in the lab. Go to the{' '}
+                <Link href="/lab" className="text-blue-400 hover:text-blue-300 underline">
+                  Virtual Lab
+                </Link>
+                {' '}and click "Lab Equipment" to activate and configure these devices for your experiments.
+              </p>
+            </div>
+          </div>
+        </motion.div>
       </div>
     </div>
   )

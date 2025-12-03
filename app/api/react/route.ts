@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { Experiment, ReactionResult } from '@/types/chemistry'
-
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,37 +12,33 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if API key is configured
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json(
-        { error: 'Gemini API key not configured. Please set GEMINI_API_KEY in environment variables.' },
-        { status: 503 }
-      )
-    }
-
     try {
-      // Use Gemini AI for reaction analysis
-      // Using the latest Gemini 2.5 Flash model (as of Oct 2025)
-      const model = genAI.getGenerativeModel({ 
-        model: 'gemini-2.0-flash-exp',
-        // Disable thinking to prioritize speed for chemistry analysis
-        generationConfig: {
-          temperature: 0.7,
-          topP: 0.95,
-          topK: 40,
-          maxOutputTokens: 2048,
-        }
-      })
-
-      // Prepare the prompt for Gemini
+      // Use Ollama backend for reaction analysis
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+      
+      // Prepare the prompt
       const chemicalsList = experiment.chemicals
         .map(c => `${c.chemical.name} (${c.chemical.formula}): ${c.amount} ${c.unit}`)
         .join('\n')
 
+      // Include equipment information if available
+      const equipmentInfo = experiment.equipment && experiment.equipment.length > 0
+        ? `\n\nLab Equipment Active:\n${experiment.equipment.map(eq => `- ${eq.name}: ${eq.value} ${eq.unit}`).join('\n')}`
+        : '\n\nNo lab equipment active (room temperature, no stirring, no heating)'
+
       const prompt = `You are an expert chemistry assistant analyzing a chemical reaction. 
 
 Chemicals being mixed:
-${chemicalsList}
+${chemicalsList}${equipmentInfo}
+
+IMPORTANT: Consider the active lab equipment when analyzing the reaction:
+- Hot Plate/Bunsen Burner: Higher temperatures speed up reactions, may cause decomposition, evaporation
+- Magnetic Stirrer: Better mixing leads to faster, more complete reactions
+- pH Meter: Indicates acidity/basicity of solution
+- Thermometer: Monitors temperature changes
+- Timer: Reaction duration affects yield
+- Centrifuge: Separates precipitates and layers
+- Analytical Balance: Precise measurements affect stoichiometry
 
 Analyze this chemical reaction and provide a detailed response in the following JSON format:
 {
@@ -66,12 +58,54 @@ Analyze this chemical reaction and provide a detailed response in the following 
 
 Provide ONLY the JSON response, no additional text. Ensure all field names match exactly.`
 
-      const result = await model.generateContent(prompt)
-      const response = await result.response
-      const text = response.text()
+      // Call Ollama backend
+      const response = await fetch(`${backendUrl}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: prompt,
+          context: 'Chemical reaction analysis',
+          chemicals: experiment.chemicals.map(c => c.chemical.name)
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Backend returned ${response.status}`)
+      }
+
+      // Read the streaming response
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let fullText = ''
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n').filter(line => line.trim())
+          
+          for (const line of lines) {
+            try {
+              const data = JSON.parse(line)
+              if (data.token) {
+                fullText += data.token
+              }
+            } catch (e) {
+              // Ignore parse errors
+            }
+          }
+        }
+      }
 
       // Parse the JSON response
       let reactionResult: ReactionResult
+      
+      // Clean up the response
+      let text = fullText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
       
       // Try to extract JSON from the response
       const jsonMatch = text.match(/\{[\s\S]*\}/)
@@ -84,24 +118,24 @@ Provide ONLY the JSON response, no additional text. Ensure all field names match
       // Validate and ensure all required fields are present
       const validatedResult: ReactionResult = {
         color: reactionResult.color,
-        smell: reactionResult.smell ,
+        smell: reactionResult.smell,
         precipitate: reactionResult.precipitate,
         precipitateColor: reactionResult.precipitateColor,
-        products: reactionResult.products ,
-        balancedEquation: reactionResult.balancedEquation ,
-        reactionType: reactionResult.reactionType ,
-        observations: reactionResult.observations ,
-        safetyNotes: reactionResult.safetyNotes ,
-        temperature: reactionResult.temperature ,
-        gasEvolution: reactionResult.gasEvolution ,
-        confidence: reactionResult.confidence 
+        products: reactionResult.products,
+        balancedEquation: reactionResult.balancedEquation,
+        reactionType: reactionResult.reactionType,
+        observations: reactionResult.observations,
+        safetyNotes: reactionResult.safetyNotes,
+        temperature: reactionResult.temperature,
+        gasEvolution: reactionResult.gasEvolution,
+        confidence: reactionResult.confidence
       }
 
-      console.log('AI Analysis successful:', validatedResult)
+      console.log('Ollama Analysis successful:', validatedResult)
       return NextResponse.json(validatedResult)
 
     } catch (aiError) {
-      console.error('Gemini AI error, using fallback:', aiError)
+      console.error('Ollama AI error, using fallback:', aiError)
       
       // Fallback: Use deterministic reactions
       const fallbackResult = generateFallbackReaction(experiment)

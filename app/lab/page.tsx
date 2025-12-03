@@ -39,6 +39,15 @@ export default function LabPage() {
     const [showFeatures, setShowFeatures] = useState(false)
     const [activeEquipment, setActiveEquipment] = useState<any[]>([])
     const [openEquipmentPanel, setOpenEquipmentPanel] = useState(false)
+    
+    // Debug equipment changes
+    useEffect(() => {
+        console.log('Lab: Active equipment changed', {
+            count: activeEquipment.length,
+            active: activeEquipment.filter(eq => eq.active),
+            all: activeEquipment
+        })
+    }, [activeEquipment])
     const labTableRef = useRef<HTMLDivElement>(null)
     const reactionPanelRef = useRef<HTMLDivElement>(null)
 
@@ -80,14 +89,23 @@ export default function LabPage() {
         setCurrentExperiment(experiment)
 
         // Add equipment info to experiment
+        const activeEq = activeEquipment.filter(eq => eq.active)
+        console.log('Lab: Performing reaction with equipment', {
+            totalEquipment: activeEquipment.length,
+            activeCount: activeEq.length,
+            activeEquipment: activeEq
+        })
+        
         const experimentWithEquipment = {
             ...experiment,
-            equipment: activeEquipment.filter(eq => eq.active).map(eq => ({
+            equipment: activeEq.map(eq => ({
                 name: eq.name,
                 value: eq.value,
                 unit: eq.unit
             }))
         }
+        
+        console.log('Lab: Experiment with equipment', experimentWithEquipment)
 
         try {
             const response = await fetch('/api/react', {
