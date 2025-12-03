@@ -10,6 +10,7 @@ import Image from 'next/image'
 const navItems = [
   { name: 'Home', path: '/' },
   { name: 'Lab', path: '/lab' },
+  { name: 'AI Teacher', path: '/avatar' },
   { name: 'Features', path: '/features' },
   { name: 'Quiz', path: '/quiz' },
   { name: 'Molecules', path: '/molecules' },
