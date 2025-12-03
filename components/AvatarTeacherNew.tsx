@@ -87,18 +87,55 @@ function AvatarModel({
       if (nodes.LeftArm && nodes.RightArm) {
         if (isSpeaking) {
           // More expressive arm gestures when speaking
-          nodes.LeftArm.rotation.z = Math.sin(time * 4) * 0.2
-          nodes.RightArm.rotation.z = -Math.sin(time * 4) * 0.2
+          nodes.LeftArm.rotation.z = Math.sin(time * 0.8) * 0.05
+          nodes.RightArm.rotation.z = -Math.sin(time * 0.8) * 0.05
+          nodes.LeftArm.rotation.y = 0.2
+          nodes.RightArm.rotation.y = -0.2
+          nodes.LeftArm.rotation.x = 1.2
+          nodes.RightArm.rotation.x = 1.2
         } else {
           // Subtle breathing-like shoulder movement when idle
-          nodes.LeftArm.rotation.z = Math.sin(time * 4) * 0.2
-          nodes.RightArm.rotation.z = -Math.sin(time * 4) * 0.2
-           nodes.LeftArm.rotation.y = 0.2
+          nodes.LeftArm.rotation.z = Math.sin(time * 0.8) * 0.05
+          nodes.RightArm.rotation.z = -Math.sin(time * 0.8) * 0.05
+          nodes.LeftArm.rotation.y = 0.2
           nodes.RightArm.rotation.y = -0.2
           nodes.LeftArm.rotation.x = 1.2
           nodes.RightArm.rotation.x = 1.2
         }
       }
+      const perfiod = 4.0         // # total duration
+const waift   = 2.0         // # how long to stay at 0
+const afmp    = 1.2
+const phase = time % perfiod
+      // ELBOW CONTROLS - Natural forearm movement
+      if (nodes.LeftForeArm && nodes.RightForeArm) {
+        if (isSpeaking) {
+          
+          // Animated elbow bending when speaking - expressive gestures
+          nodes.LeftForeArm.rotation.z = 0.6 * (1 - Math.cos(time))// Bend elbow (0.1-0.7)
+          nodes.RightForeArm.rotation.z = -0.6 * (1 - Math.cos(time))  // Opposite phase
+         if (phase < waift) {
+    nodes.RightForeArm.rotation.z = 0;
+} else {
+    const t = phase - waift;
+    const cycle = (t / (perfiod - waift)) * Math.PI * 2;
+    nodes.RightForeArm.rotation.z = -afmp * 0.5 * (1 - Math.cos(cycle));
+} // Add slight rotation for natural movement
+          nodes.LeftForeArm.rotation.y = Math.sin(time * 2.5) * 0.1
+          nodes.RightForeArm.rotation.y = -Math.sin(time * 2.5) * 0.1
+        } else {
+          // Subtle elbow movement when idle - relaxed position
+          nodes.LeftForeArm.rotation.z = Math.sin(time * 0.6) * 0.08 + 0.3  // Slight bend
+          nodes.RightForeArm.rotation.z = -Math.sin(time * 0.6) * 0.08 - 0.3  // Slight bend
+          
+          // Minimal rotation when idle
+          nodes.LeftForeArm.rotation.y = Math.sin(time * 0.4) * 0.03
+          nodes.RightForeArm.rotation.y = -Math.sin(time * 0.4) * 0.03
+        }
+      }
+      
+      // HAND CONTROLS - Natural hand positioning
+      
       
       // ULTRA-REALISTIC LIP SYNC - High sensitivity with phoneme-based teeth animation
       if (isSpeaking) {
@@ -366,8 +403,10 @@ function AvatarModel({
       // EYE MOVEMENT - Subtle eye tracking (looking around naturally)
       if (!isSpeaking) {
         // When idle, eyes look around slowly
-        const eyeLookX = Math.sin(time * 0.3) * 0.15
+        const eyeLookX = Math.sin(time * 0.3) * 0.1
         const eyeLookY = Math.cos(time * 0.2) * 0.1
+        
+
         
         if (eyeLeftRef.current?.morphTargetInfluences && eyeLeftRef.current.morphTargetDictionary) {
           const lookLeftIndex = eyeLeftRef.current.morphTargetDictionary['eyeLookOutLeft']
