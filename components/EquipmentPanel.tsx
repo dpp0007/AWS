@@ -51,10 +51,11 @@ export default function EquipmentPanel({ onEquipmentChange, hideFloatingButton =
   }
 
   const updateValue = (id: string, change: number) => {
+    console.log('updateValue called:', { id, change })
     const updated = equipment.map(eq => {
       if (eq.id === id && eq.value !== undefined && eq.min !== undefined && eq.max !== undefined) {
-        const step = eq.step || 10
         const newValue = Math.max(eq.min, Math.min(eq.max, eq.value + change))
+        console.log('Updating value:', { id, oldValue: eq.value, newValue, change })
         return { ...eq, value: newValue }
       }
       return eq
@@ -106,7 +107,7 @@ export default function EquipmentPanel({ onEquipmentChange, hideFloatingButton =
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] pointer-events-auto"
               onClick={handleClose}
             />
 
@@ -116,7 +117,8 @@ export default function EquipmentPanel({ onEquipmentChange, hideFloatingButton =
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed right-0 top-0 bottom-0 w-full sm:w-96 bg-white dark:bg-gray-900 shadow-2xl z-50 overflow-y-auto"
+              className="fixed right-0 top-0 bottom-0 w-full sm:w-96 bg-white dark:bg-gray-900 shadow-2xl z-[10000] overflow-y-auto pointer-events-auto"
+              onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
               <div className="sticky top-0 bg-gradient-to-r from-orange-600 to-red-600 text-white p-4 flex items-center justify-between z-10">
@@ -152,13 +154,12 @@ export default function EquipmentPanel({ onEquipmentChange, hideFloatingButton =
                       {/* Header */}
                       <div className="flex items-center space-x-3 mb-3">
                         <div className={`relative p-2 rounded-lg bg-gradient-to-br ${eq.color} ${eq.active ? 'animate-pulse' : ''}`}>
-                          <Icon className={`h-5 w-5 text-white ${
-                            eq.active && (eq.id === 'magnetic-stirrer' || eq.id === 'centrifuge') 
-                              ? 'animate-spin' 
-                              : eq.active && (eq.id === 'bunsen-burner' || eq.id === 'hot-plate')
+                          <Icon className={`h-5 w-5 text-white ${eq.active && (eq.id === 'magnetic-stirrer' || eq.id === 'centrifuge')
+                            ? 'animate-spin'
+                            : eq.active && (eq.id === 'bunsen-burner' || eq.id === 'hot-plate')
                               ? 'animate-bounce'
                               : ''
-                          }`} />
+                            }`} />
                           {eq.active && (
                             <span className="absolute -top-1 -right-1 flex h-3 w-3">
                               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
@@ -182,7 +183,7 @@ export default function EquipmentPanel({ onEquipmentChange, hideFloatingButton =
                           </p>
                         </div>
                       </div>
-                      
+
                       {/* Description */}
                       <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                         {eq.description}
@@ -190,11 +191,8 @@ export default function EquipmentPanel({ onEquipmentChange, hideFloatingButton =
 
                       {/* Controls */}
                       {eq.active && eq.value !== undefined && (
-                        <div className="bg-white dark:bg-gray-900 rounded-lg p-3 relative overflow-hidden">
-                          {/* Animated background for active equipment */}
-                          <div className="absolute inset-0 bg-gradient-to-r from-green-500/10 via-blue-500/10 to-green-500/10 animate-pulse"></div>
-                          
-                          <div className="relative flex items-center justify-between mb-2">
+                        <div className="bg-gradient-to-r from-green-500/5 via-blue-500/5 to-green-500/5 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-3">
                             <span className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-1">
                               <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                               Setting:
@@ -204,15 +202,20 @@ export default function EquipmentPanel({ onEquipmentChange, hideFloatingButton =
                             </span>
                           </div>
 
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center gap-2 relative z-10">
                             <button
-                              onClick={() => updateValue(eq.id, -(eq.step || 10))}
-                              className="flex-1 p-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                updateValue(eq.id, -(eq.step || 10))
+                              }}
+                              className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors active:scale-95"
                             >
-                              <Minus className="h-4 w-4 mx-auto" />
+                              <Minus className="h-4 w-4" />
                             </button>
 
-                            <div className="flex-1">
+                            <div className="flex-1 px-2">
                               <input
                                 type="range"
                                 min={eq.min}
@@ -220,41 +223,56 @@ export default function EquipmentPanel({ onEquipmentChange, hideFloatingButton =
                                 step={eq.step || 1}
                                 value={eq.value}
                                 onChange={(e) => {
+                                  const newValue = parseFloat(e.target.value)
+                                  console.log('Slider changed:', { id: eq.id, newValue })
                                   const updated = equipment.map(item =>
                                     item.id === eq.id
-                                      ? { ...item, value: parseFloat(e.target.value) }
+                                      ? { ...item, value: newValue }
                                       : item
                                   )
                                   setEquipment(updated)
                                   onEquipmentChange?.(updated)
                                 }}
-                                className="w-full"
+                                className="w-full h-2 bg-gray-300 dark:bg-gray-600 rounded-lg appearance-none cursor-pointer accent-green-500"
+                                style={{
+                                  WebkitAppearance: 'none',
+                                }}
                               />
                             </div>
 
                             <button
-                              onClick={() => updateValue(eq.id, (eq.step || 10))}
-                              className="flex-1 p-2 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                e.stopPropagation()
+                                updateValue(eq.id, (eq.step || 10))
+                              }}
+                              className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors active:scale-95"
                             >
-                              <Plus className="h-4 w-4 mx-auto" />
+                              <Plus className="h-4 w-4" />
                             </button>
                           </div>
                         </div>
                       )}
 
                       {/* Activity Indicator */}
-                      {eq.active && (
+                      {eq.active && eq.value !== undefined && eq.min !== undefined && eq.max !== undefined && (
                         <div className="mt-3 mb-2">
                           <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
                             <span>Status</span>
-                            <span className="text-green-600 dark:text-green-400 font-semibold">Operating</span>
+                            <span className="text-green-600 dark:text-green-400 font-semibold">
+                              {Math.round(((eq.value - eq.min) / (eq.max - eq.min)) * 100)}% Power
+                            </span>
                           </div>
                           <div className="h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                            <div className="h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full animate-pulse"></div>
+                            <div
+                              className="h-full bg-gradient-to-r from-green-500 to-blue-500 rounded-full transition-all duration-300"
+                              style={{ width: `${((eq.value - eq.min) / (eq.max - eq.min)) * 100}%` }}
+                            ></div>
                           </div>
                         </div>
                       )}
-                      
+
                       {/* Toggle Button at Bottom */}
                       <button
                         onClick={() => toggleEquipment(eq.id)}
