@@ -453,7 +453,7 @@ const phase = time % perfiod
   }, [])
   
   return (
-    <group ref={groupRef} {...{ dispose: null }} position={[0, 0.5, 0]} scale={[1.2, 10, 1.2]}>
+    <group ref={groupRef} {...{ dispose: null }} position={[0, 0.5, 0]} scale={[1, 1, 1]}>
       <primitive object={nodes.Hips} />
       
       <skinnedMesh

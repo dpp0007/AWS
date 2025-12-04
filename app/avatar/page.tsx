@@ -64,12 +64,12 @@ export default function AvatarPage() {
               <span className="text-sm text-gray-200">Powered by Ollama • Fully Offline</span>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl font-bold mb-4">
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-bold mb-4">
               <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-blue-400 bg-clip-text text-transparent">
                 ERA - ELIXRA Reaction Avatar
               </span>
             </h1>
-            <p className="text-xl text-gray-300 max-w-2xl mx-auto">
+            <p className="text-base sm:text-lg lg:text-xl text-gray-300 max-w-2xl mx-auto px-4">
               Your intelligent chemistry teaching assistant. Ask questions, learn mechanisms, and get instant explanations with interactive guidance
             </p>
           </motion.div>
@@ -97,28 +97,28 @@ export default function AvatarPage() {
                     <AvatarTeacher speaking={speaking} lipSyncIntensity={lipSyncIntensity} currentPhoneme={currentPhoneme} currentEmotion={currentEmotion} />
                   </Suspense>
                   
-                  {/* Status Indicator */}
-                  <div className="absolute top-4 left-4 px-4 py-2 bg-black/50 backdrop-blur-xl rounded-full border border-white/20">
-                    <div className="flex items-center space-x-2">
+                  {/* Status Indicator - Responsive */}
+                  <div className="absolute top-2 left-2 sm:top-4 sm:left-4 px-2 py-1 sm:px-4 sm:py-2 bg-black/50 backdrop-blur-xl rounded-full border border-white/20">
+                    <div className="flex items-center space-x-1 sm:space-x-2">
                       <div className={`w-2 h-2 rounded-full ${speaking ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`} />
-                      <span className="text-sm text-white">
+                      <span className="text-xs sm:text-sm text-white">
                         {speaking ? 'Speaking...' : 'Listening'}
                       </span>
                     </div>
                   </div>
 
-                  {/* Info Cards */}
-                  <div className="absolute bottom-4 left-4 right-4 grid grid-cols-3 gap-2">
-                    <div className="bg-black/50 backdrop-blur-xl rounded-xl p-3 border border-white/20">
-                      <Bot className="h-5 w-5 text-purple-400 mb-1" />
+                  {/* Info Cards - Hidden on mobile, visible on tablet+ */}
+                  <div className="hidden sm:grid absolute bottom-4 left-4 right-4 grid-cols-3 gap-2">
+                    <div className="bg-black/50 backdrop-blur-xl rounded-xl p-2 lg:p-3 border border-white/20">
+                      <Bot className="h-4 w-4 lg:h-5 lg:w-5 text-purple-400 mb-1" />
                       <p className="text-xs text-gray-300">AI Powered</p>
                     </div>
-                    <div className="bg-black/50 backdrop-blur-xl rounded-xl p-3 border border-white/20">
-                      <Zap className="h-5 w-5 text-yellow-400 mb-1" />
+                    <div className="bg-black/50 backdrop-blur-xl rounded-xl p-2 lg:p-3 border border-white/20">
+                      <Zap className="h-4 w-4 lg:h-5 lg:w-5 text-yellow-400 mb-1" />
                       <p className="text-xs text-gray-300">Real-time</p>
                     </div>
-                    <div className="bg-black/50 backdrop-blur-xl rounded-xl p-3 border border-white/20">
-                      <BookOpen className="h-5 w-5 text-blue-400 mb-1" />
+                    <div className="bg-black/50 backdrop-blur-xl rounded-xl p-2 lg:p-3 border border-white/20">
+                      <BookOpen className="h-4 w-4 lg:h-5 lg:w-5 text-blue-400 mb-1" />
                       <p className="text-xs text-gray-300">RAG Enhanced</p>
                     </div>
                   </div>
@@ -144,12 +144,12 @@ export default function AvatarPage() {
             </motion.div>
           </div>
 
-          {/* Quick Actions */}
+          {/* Quick Actions - Responsive grid */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4"
+            className="mt-4 lg:mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4"
           >
             {[
               { icon: Beaker, text: 'Explain SN2 mechanism', color: 'from-purple-500 to-pink-500' },
@@ -163,12 +163,12 @@ export default function AvatarPage() {
                   // This would trigger the chat with the preset question
                   console.log('Quick action:', action.text)
                 }}
-                className="group relative p-4 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border border-white/20 rounded-2xl hover:border-white/40 transition-all duration-300"
+                className="group relative p-3 lg:p-4 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border border-white/20 rounded-2xl hover:border-white/40 transition-all duration-300"
               >
-                <div className={`w-10 h-10 bg-gradient-to-r ${action.color} rounded-xl flex items-center justify-center mb-2`}>
-                  <action.icon className="h-5 w-5 text-white" />
+                <div className={`w-8 h-8 lg:w-10 lg:h-10 bg-gradient-to-r ${action.color} rounded-xl flex items-center justify-center mb-2`}>
+                  <action.icon className="h-4 w-4 lg:h-5 lg:w-5 text-white" />
                 </div>
-                <p className="text-sm text-gray-300 group-hover:text-white transition-colors text-left">
+                <p className="text-xs lg:text-sm text-gray-300 group-hover:text-white transition-colors text-left">
                   {action.text}
                 </p>
               </button>
