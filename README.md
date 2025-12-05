@@ -1,6 +1,6 @@
-<div align="center">
+# 🧪 ELIXRA - Virtual Chemistry Lab with AI Avatar Teacher
 
-# 🧪✨ Elixra Virtual Chem Lab
+> **An interactive, AI-powered virtual chemistry laboratory with a 3D avatar teacher, real-time lip
 
 ### _where chemistry meets the metaverse_ 🚀
 
@@ -39,18 +39,24 @@ yo, so basically we built this insane virtual chemistry lab that's actually fun 
 ### 🔥 **core vibes**
 
 ```
-🎨 gorgeous UI/UX        → purple-space theme that slaps
-🤖 AI-powered reactions  → gemini AI doing the heavy lifting
-🎮 drag & drop interface → smooth like butter
-📱 fully responsive      → works everywhere, period
-🔐 secure auth           → your data stays yours
-☁️ cloud sync            → access from any device
-📊 export to PDF         → flex on your teacher
-🎭 realistic animations  → precipitation, color changes, bubbles
-🔬 8 lab equipment types → bunsen, stirrer, balance, timer, etc.
-🌡️ real physics engine  → temperature affects reaction rates
-⚖️ scientific accuracy   → 0.0001g precision, arrhenius equation
-🎯 equipment exclusivity → prevents impossible combinations
+🎨 gorgeous UI/UX              → purple-space theme that slaps
+🤖 AI-powered reactions        → offline (Llama) or cloud (Gemini)
+🎮 drag & drop interface       → smooth like butter
+📱 fully responsive            → works everywhere, period
+🔐 secure auth                 → your data stays yours
+☁️ cloud sync                  → access from any device
+📊 export to PDF               → flex on your teacher
+🎭 realistic animations        → precipitation, color changes, bubbles
+🔬 8 lab equipment types       → bunsen, stirrer, balance, timer, etc.
+🌡️ real physics engine        → temperature affects reaction rates
+⚖️ scientific accuracy         → 0.0001g precision, arrhenius equation
+🎯 equipment exclusivity       → prevents impossible combinations
+🤖 3D avatar teacher           → ERA (ELIXRA Reaction Avatar)
+💬 conversational AI           → remembers entire chat history
+🎤 voice input/output          → speech recognition + TTS
+🔌 offline mode                → works without internet (Ollama)
+☁️ online mode                 → cloud-powered (Gemini)
+🧠 context-aware responses     → equipment + chemistry + history
 ```
 
 ### 💎 **premium features**
@@ -185,8 +191,12 @@ create `.env.local`:
 # database (required)
 MONGODB_URI=mongodb+srv://your-connection-string
 
-# AI magic (required)
+# AI magic (choose one)
+# Option 1: Online mode with Gemini
 GEMINI_API_KEY=your-gemini-api-key
+
+# Option 2: Offline mode with Ollama (no API key needed!)
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 
 # auth stuff (required)
 NEXTAUTH_URL=http://localhost:3000
@@ -198,6 +208,210 @@ GOOGLE_CLIENT_SECRET=your-google-secret
 GITHUB_ID=your-github-id
 GITHUB_SECRET=your-github-secret
 ```
+
+### **offline setup with Ollama** 🔌
+
+#### **step 1: install ollama**
+
+```bash
+# macOS
+brew install ollama
+
+# Windows
+# download from https://ollama.ai/download
+
+# Linux
+curl https://ollama.ai/install.sh | sh
+```
+
+#### **step 2: pull the llama model**
+
+```bash
+# pull llama 3.2 (3B parameters, ~2GB)
+ollama pull llama3.2:3b-instruct-q4_K_M
+
+# verify it's installed
+ollama list
+```
+
+#### **step 3: start ollama server**
+
+```bash
+# start ollama in background
+ollama serve
+
+# or run in docker
+docker run -d -p 11434:11434 ollama/ollama
+```
+
+#### **step 4: start the backend**
+
+```bash
+# navigate to backend directory
+cd backend
+
+# install python dependencies
+pip install -r requirements.txt
+
+# run the backend server
+python main_simple.py
+
+# or with uvicorn directly
+uvicorn main_simple:app --reload --host 0.0.0.0 --port 8000
+```
+
+#### **step 5: start the frontend**
+
+```bash
+# in root directory
+npm run dev
+
+# open http://localhost:3000
+```
+
+**that's it!** your chemistry lab is now running completely offline with AI support 🎉
+
+### **online setup with Gemini** ☁️
+
+```bash
+# 1. get your Gemini API key from https://ai.google.dev/
+# 2. add to .env.local:
+GEMINI_API_KEY=your-api-key
+
+# 3. start frontend normally
+npm run dev
+
+# 4. no backend needed (uses Next.js API routes)
+```
+
+---
+
+## 🤖 AI Avatar Teacher with Conversational Support (NEW!)
+
+### **ERA - ELIXRA Reaction Avatar** 🎭
+
+elixra features an intelligent 3D avatar teacher that understands chemistry and maintains full conversation context:
+
+#### **Features** ✨
+
+```typescript
+✅ 3D avatar with realistic animations
+✅ real-time lip sync with phoneme detection
+✅ facial expressions based on emotion
+✅ full conversation history context
+✅ equipment-aware reaction analysis
+✅ text-to-speech with natural voice
+✅ speech recognition (voice input)
+✅ bone animations (arms, shoulders, elbows)
+✅ responsive to mobile devices
+✅ works offline with Llama model
+```
+
+#### **Conversational AI** 💬
+
+```typescript
+// avatar remembers entire conversation
+User: "What is photosynthesis?"
+Avatar: [explains photosynthesis with animations]
+
+User: "How does it relate to cellular respiration?"
+Avatar: [references previous explanation and connects concepts]
+
+// context includes:
+- previous messages in session (full history)
+- lab equipment being used (bunsen, stirrer, etc.)
+- chemicals currently in use
+- experiment history
+- student's learning level
+- equipment effects on reactions
+
+// example with equipment context:
+User: "What happens if I heat this?"
+Avatar: [considers bunsen burner temperature]
+Avatar: "At 150°C, the reaction rate increases 2.5x due to the Arrhenius equation..."
+
+// example with conversation memory:
+User: "Explain SN2 mechanism"
+Avatar: [detailed explanation with animations]
+
+User: "How is this different from SN1?"
+Avatar: [references SN2 explanation and contrasts with SN1]
+```
+
+#### **Real-time Animations** 🎬
+
+```typescript
+✅ lip sync with phoneme detection
+✅ mouth opening based on speech intensity
+✅ teeth visibility for specific sounds
+✅ facial expressions (happy, curious, concerned, etc.)
+✅ shoulder and elbow movements while speaking
+✅ hand gestures synchronized with speech
+✅ idle animations when listening
+✅ emotion-based expressions
+```
+
+#### **Offline Mode** 🔌
+
+```typescript
+// fully functional without internet
+- Ollama backend runs locally
+- Llama 3.2 model (3B parameters)
+- ~2GB RAM required
+- ~100-200ms response time
+- no API keys needed
+- complete privacy (data stays local)
+- works on any machine with Python
+- perfect for schools/institutions
+- no cloud dependency
+- full conversation history support
+- equipment-aware reactions
+- real-time lip sync and animations
+```
+
+**best for:**
+- schools without internet
+- privacy-conscious users
+- offline learning environments
+- testing and development
+- institutions with data policies
+
+#### **Online Mode** ☁️
+
+```typescript
+// cloud-powered for advanced features
+- Google Gemini API integration
+- faster responses (~500ms)
+- more advanced reasoning
+- requires internet connection
+- requires API key setup
+- full conversation history support
+- equipment-aware reactions
+- real-time lip sync and animations
+```
+
+**best for:**
+- advanced reasoning tasks
+- faster response times
+- cloud-based deployments
+- users with internet access
+- production environments
+
+#### **Comparison** 📊
+
+| Feature | Offline (Ollama) | Online (Gemini) |
+|---------|------------------|-----------------|
+| Internet Required | ❌ No | ✅ Yes |
+| API Key | ❌ No | ✅ Yes |
+| Response Time | ~100-200ms | ~500ms |
+| Privacy | ✅ Complete | ⚠️ Cloud-based |
+| Reasoning | Good | Excellent |
+| Cost | Free | Pay-per-use |
+| Setup | ~5 min | ~2 min |
+| Conversation Memory | ✅ Yes | ✅ Yes |
+| Equipment Context | ✅ Yes | ✅ Yes |
+| Lip Sync | ✅ Yes | ✅ Yes |
+| Animations | ✅ Yes | ✅ Yes |
 
 ---
 
@@ -336,8 +550,8 @@ elixra now includes a complete suite of virtual lab equipment with **scientifica
 
 **exclusivity enforcement:**
 
-- ❌ bunsen burner + hot plate (only one heating source)
-- ❌ stirrer + centrifuge (only one motion device)
+- ✅ bunsen burner + hot plate (only one heating source)
+- ✅ stirrer + centrifuge (only one motion device)
 - ✅ balance + any equipment (compatible)
 - ✅ pH meter + thermometer (compatible)
 - ✅ timer + any equipment (compatible)
@@ -422,27 +636,53 @@ animations   → Framer Motion (smooth af)
 drag & drop  → React DnD (touch support)
 icons        → Lucide React
 PDF export   → jsPDF
+3D avatar    → Three.js + GLB models
+speech       → Web Speech API (TTS + STT)
 ```
 
 ### **backend** ⚙️
 
 ```typescript
 runtime      → Node.js
-API          → Next.js API routes
+API          → Next.js API routes + FastAPI
 database     → MongoDB Atlas
-AI           → Google Gemini API
-validation   → Zod schemas
+AI (online)  → Google Gemini API
+AI (offline) → Ollama + Llama 3.2 model
+validation   → Zod schemas + Pydantic
 auth         → NextAuth.js
 security     → bcryptjs hashing
+streaming    → WebSocket + Server-Sent Events
+```
+
+### **AI Models** 🤖
+
+#### **Online Mode** (Cloud-based)
+```typescript
+provider     → Google Gemini API
+model        → gemini-pro
+features     → advanced reasoning, real-time updates
+requires     → internet connection + API key
+latency      → ~500ms average
+```
+
+#### **Offline Mode** (Local-first)
+```typescript
+provider     → Ollama (local runtime)
+model        → llama3.2:3b-instruct-q4_K_M
+features     → fully offline, no API keys needed
+requires     → Ollama installed locally
+latency      → ~100-200ms (depends on hardware)
+memory       → ~2GB RAM minimum
 ```
 
 ### **deployment** 🚀
 
 ```typescript
-hosting      → Vercel (edge functions)
+hosting      → Vercel (frontend) + Local/Docker (backend)
 CDN          → Vercel Edge Network
 analytics    → Vercel Analytics
 monitoring   → Vercel Logs
+backend      → FastAPI (Python) on localhost:8000
 ```
 
 ---
@@ -903,12 +1143,87 @@ uptime:               99.9%   🎯
 
 ---
 
+## 🔧 troubleshooting (offline mode)
+
+### **ollama not connecting** 🔌
+
+```bash
+# check if ollama is running
+curl http://localhost:11434/api/tags
+
+# if not running, start it
+ollama serve
+
+# check backend can reach ollama
+curl http://localhost:11434/api/generate -d '{"model":"llama3.2:3b-instruct-q4_K_M","prompt":"test"}'
+```
+
+### **model not found** 📦
+
+```bash
+# list installed models
+ollama list
+
+# if llama3.2 not listed, pull it
+ollama pull llama3.2:3b-instruct-q4_K_M
+
+# verify it's there
+ollama list | grep llama3.2
+```
+
+### **backend not starting** ⚙️
+
+```bash
+# check python version (need 3.8+)
+python --version
+
+# install dependencies
+pip install -r requirements.txt
+
+# check if port 8000 is in use
+lsof -i :8000  # macOS/Linux
+netstat -ano | findstr :8000  # Windows
+
+# start with verbose logging
+python main_simple.py --log-level debug
+```
+
+### **slow responses** 🐢
+
+```bash
+# check system resources
+# need at least 2GB RAM free
+# CPU matters - faster CPU = faster responses
+
+# reduce model size (if needed)
+ollama pull llama2:7b  # smaller model
+
+# or use quantized version
+ollama pull llama3.2:1b  # 1B model (faster)
+```
+
+### **connection timeout** ⏱️
+
+```bash
+# increase timeout in .env.local
+BACKEND_TIMEOUT=30000  # 30 seconds
+
+# check network connectivity
+ping localhost
+
+# verify backend URL
+echo $NEXT_PUBLIC_BACKEND_URL
+```
+
+---
+
 ## 🐛 known issues (we're working on it)
 
 - [ ] safari sometimes glitches on drag & drop
 - [ ] mobile keyboard covers input fields
 - [ ] PDF export slow on large experiments
-- [ ] occasional AI timeout on complex reactions
+- [ ] occasional AI timeout on complex reactions (increase timeout)
+- [ ] ollama model download slow on first run (be patient!)
 
 **workarounds available in [issues](https://github.com/yourusername/elixra-chem-lab/issues)**
 
