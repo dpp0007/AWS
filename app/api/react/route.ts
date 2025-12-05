@@ -29,15 +29,16 @@ export async function POST(request: NextRequest) {
       const stirrer = experiment.equipment?.find(eq => eq.name === 'magnetic-stirrer')
       
       if (bunsenBurner) {
-        const burnerTemp = bunsenBurner.settings?.temperature || 0
+        // Handle both old format (value/unit) and new format (settings object)
+        const burnerTemp = (bunsenBurner as any).settings?.temperature || (bunsenBurner as any).value || 0
         reactionTemperature = 25 + (burnerTemp / 1000) * 275 // 0-1000°C burner → 25-300°C solution
       } else if (hotPlate) {
-        const plateTemp = hotPlate.settings?.temperature || 25
+        const plateTemp = (hotPlate as any).settings?.temperature || (hotPlate as any).value || 25
         reactionTemperature = Math.max(reactionTemperature, plateTemp)
       }
       
       if (stirrer) {
-        const rpm = stirrer.settings?.rpm || 0
+        const rpm = (stirrer as any).settings?.rpm || (stirrer as any).value || 0
         reactionTemperature += (rpm / 1500) * 2 // Friction heat
       }
       
@@ -52,11 +53,12 @@ export async function POST(request: NextRequest) {
       // Include equipment information with calculated effects
       const equipmentInfo = experiment.equipment && experiment.equipment.length > 0
         ? `\n\nLab Equipment Active:\n${experiment.equipment.map(eq => {
-            const settings = eq.settings || {}
+            const eqAny = eq as any
+            const settings = eqAny.settings || {}
             const settingsStr = Object.entries(settings)
               .map(([key, value]) => `${key}: ${value}`)
               .join(', ')
-            return `- ${eq.name}: ${settingsStr}`
+            return `- ${eqAny.name}: ${settingsStr || `value: ${eqAny.value} ${eqAny.unit}`}`
           }).join('\n')}\n\nCALCULATED EFFECTS:\n- Reaction Temperature: ${reactionTemperature.toFixed(1)}°C\n- Reaction Rate Multiplier: ${speedMultiplier}x (Arrhenius equation)\n- ${reactionTemperature > 100 ? 'WARNING: High temperature may cause decomposition, evaporation, or side reactions' : reactionTemperature > 50 ? 'Elevated temperature accelerates reaction significantly' : 'Room temperature - normal reaction kinetics'}`
         : '\n\nNo lab equipment active (room temperature 25°C, no stirring, no heating, rate multiplier: 1.0x)'
 
