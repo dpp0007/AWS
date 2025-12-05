@@ -21,24 +21,47 @@ export async function POST(request: NextRequest) {
         .map(c => `${c.chemical.name} (${c.chemical.formula}): ${c.amount} ${c.unit}`)
         .join('\n')
 
-      // Include equipment information if available
+      // Calculate actual temperature from equipment
+      let reactionTemperature = 25 // Room temperature default
+      const bunsenBurner = experiment.equipment?.find(eq => eq.name === 'bunsen-burner')
+      const hotPlate = experiment.equipment?.find(eq => eq.name === 'hot-plate')
+      const stirrer = experiment.equipment?.find(eq => eq.name === 'magnetic-stirrer')
+      
+      if (bunsenBurner) {
+        const burnerTemp = bunsenBurner.value || 0
+        reactionTemperature = 25 + (burnerTemp / 1000) * 275 // 0-1000°C burner → 25-300°C solution
+      } else if (hotPlate) {
+        reactionTemperature = Math.max(reactionTemperature, hotPlate.value || 25)
+      }
+      
+      if (stirrer) {
+        const rpm = stirrer.value || 0
+        reactionTemperature += (rpm / 1500) * 2 // Friction heat
+      }
+      
+      // Calculate temperature effect on reaction rate (Arrhenius equation)
+      const R = 8.314 // Gas constant J/(mol·K)
+      const Ea = 50000 // Activation energy J/mol (typical value)
+      const T = reactionTemperature + 273.15 // Convert to Kelvin
+      const T0 = 298.15 // Room temperature in Kelvin
+      const rateFactor = Math.exp(-Ea / (R * T)) / Math.exp(-Ea / (R * T0))
+      const speedMultiplier = rateFactor.toFixed(2)
+      
+      // Include equipment information with calculated effects
       const equipmentInfo = experiment.equipment && experiment.equipment.length > 0
-        ? `\n\nLab Equipment Active:\n${experiment.equipment.map(eq => `- ${eq.name}: ${eq.value} ${eq.unit}`).join('\n')}`
-        : '\n\nNo lab equipment active (room temperature, no stirring, no heating)'
+        ? `\n\nLab Equipment Active:\n${experiment.equipment.map(eq => `- ${eq.name}: ${eq.value} ${eq.unit}`).join('\n')}\n\nCALCULATED EFFECTS:\n- Reaction Temperature: ${reactionTemperature.toFixed(1)}°C\n- Reaction Rate Multiplier: ${speedMultiplier}x (Arrhenius equation)\n- ${reactionTemperature > 100 ? 'WARNING: High temperature may cause decomposition, evaporation, or side reactions' : reactionTemperature > 50 ? 'Elevated temperature accelerates reaction significantly' : 'Room temperature - normal reaction kinetics'}`
+        : '\n\nNo lab equipment active (room temperature 25°C, no stirring, no heating, rate multiplier: 1.0x)'
 
       const prompt = `You are an expert chemistry assistant analyzing a chemical reaction. 
 
 Chemicals being mixed:
 ${chemicalsList}${equipmentInfo}
 
-IMPORTANT: Consider the active lab equipment when analyzing the reaction:
-- Hot Plate/Bunsen Burner: Higher temperatures speed up reactions, may cause decomposition, evaporation
-- Magnetic Stirrer: Better mixing leads to faster, more complete reactions
-- pH Meter: Indicates acidity/basicity of solution
-- Thermometer: Monitors temperature changes
-- Timer: Reaction duration affects yield
-- Centrifuge: Separates precipitates and layers
-- Analytical Balance: Precise measurements affect stoichiometry
+CRITICAL: Temperature DIRECTLY affects reaction outcomes:
+- Higher temperatures (>50°C): Faster reactions, may cause decomposition, evaporation, color changes
+- Very high temperatures (>100°C): Water evaporates, organic compounds may decompose, equilibrium shifts
+- Stirring: Better mixing leads to faster, more complete reactions
+- Use the calculated rate multiplier to determine reaction speed and completeness
 
 Analyze this chemical reaction and provide a detailed response in the following JSON format:
 {

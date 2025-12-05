@@ -25,6 +25,7 @@ import ActiveEquipmentDisplay from '@/components/ActiveEquipmentDisplay'
 import ModernNavbar from '@/components/ModernNavbar'
 import { useDragScroll } from '@/hooks/useDragScroll'
 import { Experiment, ReactionResult } from '@/types/chemistry'
+import { calculatePH, formatPH } from '@/lib/ph-calculator'
 
 export default function LabPage() {
     const router = useRouter()
@@ -38,17 +39,74 @@ export default function LabPage() {
     const [addTestTubeFunc, setAddTestTubeFunc] = useState<(() => void) | null>(null)
     const [addBeakerFunc, setAddBeakerFunc] = useState<(() => void) | null>(null)
     const [showFeatures, setShowFeatures] = useState(false)
-    const [activeEquipment, setActiveEquipment] = useState<any[]>([])
+    const [equipmentAttachments, setEquipmentAttachments] = useState<any[]>([])
+    const [selectedTubeId, setSelectedTubeId] = useState('tube-1')
     const [openEquipmentPanel, setOpenEquipmentPanel] = useState(false)
-    
+    const [selectedTubeContents, setSelectedTubeContents] = useState<any[]>([])
+
+    // Calculate dynamic pH and temperature for selected tube
+    const currentPH = selectedTubeContents.length > 0 ? formatPH(calculatePH(selectedTubeContents)) : 0
+
+    const calculateTemperature = (): number => {
+        const ROOM_TEMP = 25
+        const EMPTY_TUBE_INDICATOR = -999
+
+        if (selectedTubeContents.length === 0) return EMPTY_TUBE_INDICATOR
+
+        let temperature = ROOM_TEMP
+        const tubeAttachments = equipmentAttachments.filter(a => a.targetTubeId === selectedTubeId && a.isActive)
+
+        const bunsenBurner = tubeAttachments.find(a => a.equipmentType === 'bunsen-burner')
+        const hotPlate = tubeAttachments.find(a => a.equipmentType === 'hot-plate')
+        const stirrer = tubeAttachments.find(a => a.equipmentType === 'magnetic-stirrer')
+
+        if (bunsenBurner) {
+            const burnerTemp = bunsenBurner.settings.temperature || 0
+            temperature = ROOM_TEMP + (burnerTemp / 1000) * 275
+        }
+
+        if (hotPlate) {
+            const plateTemp = hotPlate.settings.temperature || 0
+            temperature = Math.max(temperature, plateTemp)
+        }
+
+        if (stirrer) {
+            const rpm = stirrer.settings.rpm || 0
+            temperature += (rpm / 1500) * 2
+        }
+
+        return Math.round(temperature * 10) / 10
+    }
+
+    const currentTemperature = calculateTemperature()
+
+    // Calculate dynamic weight for selected tube
+    const calculateWeight = (): number => {
+        if (selectedTubeContents.length === 0) return 0
+
+        let totalWeight = 0
+        selectedTubeContents.forEach(content => {
+            if (content.unit === 'g') {
+                totalWeight += content.amount
+            } else if (content.unit === 'ml') {
+                totalWeight += content.amount // 1ml ≈ 1g
+            } else if (content.unit === 'drops') {
+                totalWeight += content.amount * 0.05 // 1 drop ≈ 0.05g
+            }
+        })
+
+        return totalWeight
+    }
+
+    const currentWeight = calculateWeight()
+
     // Debug equipment changes
     useEffect(() => {
-        console.log('Lab: Active equipment changed', {
-            count: activeEquipment.length,
-            active: activeEquipment.filter(eq => eq.active),
-            all: activeEquipment
+        console.log('Lab: Equipment attachments changed', {
+            count: equipmentAttachments.length,
+            attachments: equipmentAttachments
         })
-    }, [activeEquipment])
+    }, [equipmentAttachments])
     const labTableRef = useRef<HTMLDivElement>(null)
     const reactionPanelRef = useRef<HTMLDivElement>(null)
 
@@ -90,22 +148,19 @@ export default function LabPage() {
         setCurrentExperiment(experiment)
 
         // Add equipment info to experiment
-        const activeEq = activeEquipment.filter(eq => eq.active)
         console.log('Lab: Performing reaction with equipment', {
-            totalEquipment: activeEquipment.length,
-            activeCount: activeEq.length,
-            activeEquipment: activeEq
+            totalAttachments: equipmentAttachments.length,
+            attachments: equipmentAttachments
         })
-        
+
         const experimentWithEquipment = {
             ...experiment,
-            equipment: activeEq.map(eq => ({
-                name: eq.name,
-                value: eq.value,
-                unit: eq.unit
+            equipment: equipmentAttachments.map(att => ({
+                name: att.equipmentType,
+                settings: att.settings
             }))
         }
-        
+
         console.log('Lab: Experiment with equipment', experimentWithEquipment)
 
         try {
@@ -347,6 +402,11 @@ export default function LabPage() {
                             onAddChemicalToTestTube={setAddChemicalToTestTube}
                             onAddTestTube={setAddTestTubeFunc}
                             onAddBeaker={setAddBeakerFunc}
+                            equipmentAttachments={equipmentAttachments}
+                            onEquipmentChange={setEquipmentAttachments}
+                            selectedTubeId={selectedTubeId}
+                            onSelectTube={setSelectedTubeId}
+                            onSelectedTubeContentsChange={setSelectedTubeContents}
                         />
                     </div>
                 </motion.div>
@@ -545,14 +605,19 @@ export default function LabPage() {
       `}</style>
 
             {/* Active Equipment Display - Floating on lab screen */}
-            <ActiveEquipmentDisplay equipment={activeEquipment} />
+            {/* <ActiveEquipmentDisplay equipment={activeEquipment} /> */}
 
             {/* Equipment Panel - Integrated into Features button, no separate floating button */}
             <EquipmentPanel
-                onEquipmentChange={setActiveEquipment}
+                onEquipmentChange={setEquipmentAttachments}
+                currentAttachments={equipmentAttachments}
+                selectedTubeId={selectedTubeId}
                 hideFloatingButton={true}
                 externalIsOpen={openEquipmentPanel}
                 onClose={() => setOpenEquipmentPanel(false)}
+                currentPH={currentPH}
+                currentTemperature={currentTemperature}
+                currentWeight={currentWeight}
             />
         </div>
     )

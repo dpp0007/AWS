@@ -7,7 +7,7 @@ import TestTube from './TestTube'
 import Beaker from './Beaker'
 import QuantityModal from './QuantityModal'
 import { Chemical, ChemicalContent, Experiment, ReactionResult } from '@/types/chemistry'
-import { Plus, Trash2, Atom } from 'lucide-react'
+import { Plus, Trash2, Atom, X } from 'lucide-react'
 
 interface LabTableProps {
   onReaction: (experiment: Experiment) => void
@@ -16,9 +16,26 @@ interface LabTableProps {
   onAddChemicalToTestTube?: (callback: (chemical: Chemical) => void) => void
   onAddTestTube?: (callback: () => void) => void
   onAddBeaker?: (callback: () => void) => void
+  equipmentAttachments?: any[]
+  onEquipmentChange?: (attachments: any[]) => void
+  selectedTubeId?: string
+  onSelectTube?: (tubeId: string) => void
+  onSelectedTubeContentsChange?: (contents: ChemicalContent[]) => void
 }
 
-export default function LabTable({ onReaction, reactionResult, isReacting, onAddChemicalToTestTube, onAddTestTube, onAddBeaker }: LabTableProps) {
+export default function LabTable({
+  onReaction,
+  reactionResult,
+  isReacting,
+  onAddChemicalToTestTube,
+  onAddTestTube,
+  onAddBeaker,
+  equipmentAttachments = [],
+  onEquipmentChange,
+  selectedTubeId = 'tube-1',
+  onSelectTube,
+  onSelectedTubeContentsChange
+}: LabTableProps) {
   const [testTubes, setTestTubes] = useState<Array<{ id: string; contents: ChemicalContent[] }>>([
     { id: 'tube-1', contents: [] },
     { id: 'tube-2', contents: [] }
@@ -49,6 +66,14 @@ export default function LabTable({ onReaction, reactionResult, isReacting, onAdd
       return [...prev, { id: newId, contents: [] }]
     })
   }, [])
+
+  // Notify parent when selected tube contents change
+  useEffect(() => {
+    const selectedTube = testTubes.find(t => t.id === selectedTubeId) || beakers.find(b => b.id === selectedTubeId)
+    if (selectedTube && onSelectedTubeContentsChange) {
+      onSelectedTubeContentsChange(selectedTube.contents)
+    }
+  }, [testTubes, beakers, selectedTubeId, onSelectedTubeContentsChange])
 
   const removeGlassware = (id: string, type: 'tube' | 'beaker') => {
     if (type === 'tube') {
@@ -112,7 +137,7 @@ export default function LabTable({ onReaction, reactionResult, isReacting, onAdd
 
   const handleAddChemicalToFirstTestTube = useCallback((chemical: Chemical) => {
     console.log('LabTable: handleAddChemicalToFirstTestTube called with:', chemical)
-    
+
     // Validate chemical object
     if (!chemical || typeof chemical !== 'object') {
       console.warn('LabTable: Invalid chemical object for test tube')
@@ -127,7 +152,7 @@ export default function LabTable({ onReaction, reactionResult, isReacting, onAdd
     // Find the first test tube
     const firstTestTube = testTubes[0]
     console.log('LabTable: First test tube:', firstTestTube)
-    
+
     if (firstTestTube) {
       console.log('LabTable: Opening quantity modal for', chemical.name)
       setQuantityModal({
@@ -248,11 +273,25 @@ export default function LabTable({ onReaction, reactionResult, isReacting, onAdd
                 <TestTube
                   id={tube.id}
                   contents={tube.contents}
+                  equipmentAttachments={equipmentAttachments}
+                  onEquipmentChange={onEquipmentChange}
                   onAddChemical={addChemicalToGlassware}
                   onClear={() => clearGlassware(tube.id)}
                   reactionResult={reactionResult}
                   isReacting={isReacting}
                 />
+                {/* Clear button - aligned with trash button */}
+                {tube.contents.length > 0 && (
+                  <motion.button
+                    onClick={() => clearGlassware(tube.id)}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="absolute top-0 left-0 p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg z-50"
+                    title="Clear contents"
+                  >
+                    <X className="h-3 w-3" />
+                  </motion.button>
+                )}
                 {testTubes.length > 1 && (
                   <motion.button
                     onClick={() => removeGlassware(tube.id, 'tube')}
@@ -280,11 +319,25 @@ export default function LabTable({ onReaction, reactionResult, isReacting, onAdd
                 <Beaker
                   id={beaker.id}
                   contents={beaker.contents}
+                  equipmentAttachments={equipmentAttachments}
+                  onEquipmentChange={onEquipmentChange}
                   onAddChemical={addChemicalToGlassware}
                   onClear={() => clearGlassware(beaker.id)}
                   reactionResult={reactionResult}
                   isReacting={isReacting}
                 />
+                {/* Clear button - aligned with trash button */}
+                {beaker.contents.length > 0 && (
+                  <motion.button
+                    onClick={() => clearGlassware(beaker.id)}
+                    whileHover={{ scale: 1.1 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="absolute top-0 left-0 p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg z-50"
+                    title="Clear contents"
+                  >
+                    <X className="h-3 w-3" />
+                  </motion.button>
+                )}
                 {beakers.length > 1 && (
                   <motion.button
                     onClick={() => removeGlassware(beaker.id, 'beaker')}

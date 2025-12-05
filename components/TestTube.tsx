@@ -4,6 +4,10 @@ import { useDrop } from 'react-dnd'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Chemical, ChemicalContent, ReactionResult } from '@/types/chemistry'
 import { X, Droplets } from 'lucide-react'
+import { useRef, useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import EquipmentEffectsOrchestrator from '@/components/equipment-effects/EquipmentEffectsOrchestrator'
+import { EquipmentAttachment } from '@/lib/equipment-animations'
 
 interface TestTubeProps {
   id: string
@@ -12,6 +16,8 @@ interface TestTubeProps {
   onClear: () => void
   reactionResult: ReactionResult | null
   isReacting: boolean
+  equipmentAttachments?: EquipmentAttachment[]
+  onEquipmentChange?: (attachments: EquipmentAttachment[]) => void
 }
 
 export default function TestTube({
@@ -20,8 +26,71 @@ export default function TestTube({
   onAddChemical,
   onClear,
   reactionResult,
-  isReacting
+  isReacting,
+  equipmentAttachments = [],
+  onEquipmentChange
 }: TestTubeProps) {
+  const tubeRef = useRef<HTMLDivElement>(null)
+  const [tubePosition, setTubePosition] = useState<{
+    x: number; y: number; width: number; height: number
+  } | null>(null)
+
+  // Calculate tube position for equipment animations - REAL-TIME BINDING
+  const updateTubePosition = () => {
+    if (tubeRef.current) {
+      const rect = tubeRef.current.getBoundingClientRect()
+      setTubePosition({
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height
+      })
+    }
+  }
+
+  useEffect(() => {
+    // Initial position
+    updateTubePosition()
+
+    // Update on scroll (tube moves in viewport)
+    const handleScroll = () => updateTubePosition()
+
+    // Update on resize (window size changes)
+    const handleResize = () => updateTubePosition()
+
+    // Observe tube element for size/position changes
+    const observer = new ResizeObserver(() => updateTubePosition())
+    if (tubeRef.current) {
+      observer.observe(tubeRef.current)
+    }
+
+    window.addEventListener('scroll', handleScroll, true)
+    window.addEventListener('resize', handleResize)
+
+    // Optimized RAF-based position tracking with throttle
+    let rafId: number
+    let lastUpdate = 0
+    const THROTTLE_MS = 100
+
+    const rafUpdate = () => {
+      const now = Date.now()
+      if (now - lastUpdate >= THROTTLE_MS) {
+        updateTubePosition()
+        lastUpdate = now
+      }
+      rafId = requestAnimationFrame(rafUpdate)
+    }
+
+    rafId = requestAnimationFrame(rafUpdate)
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true)
+      window.removeEventListener('resize', handleResize)
+      observer.disconnect()
+      cancelAnimationFrame(rafId)
+    }
+  }, [])
+
   const [{ isOver, canDrop }, drop] = useDrop(() => ({
     accept: 'chemical',
     drop: (item: Chemical) => {
@@ -107,25 +176,29 @@ export default function TestTube({
 
   return (
     <div className="flex flex-col items-center space-y-3 w-full relative">
-      {/* Clear button - aligned with trash button */}
-      {contents.length > 0 && (
-        <button
-          onClick={onClear}
-          className="absolute top-0 left-0 p-2 bg-amber-500 hover:bg-amber-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg z-50"
-          title="Clear contents"
-        >
-          <X className="h-3 w-3" />
-        </button>
-      )}
+      {/* Tube clip path for masking liquid effects */}
+      <svg width="0" height="0" className="absolute">
+        <defs>
+          <clipPath id={`tube-clip-${id}`} clipPathUnits="objectBoundingBox">
+            <path d="M 0,0 L 1,0 L 1,0.85 Q 1,1 0.5,1 Q 0,1 0,0.85 Z" />
+          </clipPath>
+        </defs>
+      </svg>
+
+
 
       <motion.div
-        ref={drop as any}
-        className={`test-tube relative w-20 h-40 z-25 transition-all duration-300 ${isOver && canDrop
+        ref={(node) => {
+          drop(node)
+          if (node) (tubeRef as any).current = node
+        }}
+        className={`test-tube relative w-20 h-40 transition-all duration-300 ${isOver && canDrop
           ? 'ring-4 ring-blue-400 ring-opacity-50 shadow-xl shadow-blue-400/30 scale-105'
           : canDrop
             ? 'ring-2 ring-blue-300 ring-opacity-30'
             : ''
           } ${isReacting ? 'reaction-glow' : ''}`}
+        style={{ zIndex: 120, position: 'relative' }}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         animate={{
@@ -295,10 +368,32 @@ export default function TestTube({
 
       </motion.div>
 
-      {/* Contents list */}
-      <div className="text-center min-h-[120px] w-full">
+      {/* Equipment Effects Overlay - Rendered via Portal */}
+      {tubePosition && typeof document !== 'undefined' && createPortal(
+        <EquipmentEffectsOrchestrator
+          tubeId={id}
+          tubePosition={tubePosition}
+          attachments={equipmentAttachments}
+          contents={contents}
+          onEquipmentChange={onEquipmentChange}
+        />,
+        document.body
+      )}
+
+      {/* Contents list - with dynamic spacing for equipment */}
+      <div
+        className="text-center w-full"
+        style={{
+          marginTop: equipmentAttachments.some(a => a.equipmentType === 'analytical-balance' && a.isActive)
+            ? '140px'
+            : equipmentAttachments.length > 0
+              ? '80px'
+              : '20px', // Add 20px gap when no equipment
+          minHeight: '120px'
+        }}
+      >
         {contents.length === 0 ? (
-          <div className="text-xs text-gray-400 flex flex-col items-center space-y-2 p-4 bg-slate-800/30 rounded-xl border-2 border-dashed border-gray-600 hover:border-blue-400 transition-colors">
+          <div className="text-xs text-gray-400 flex flex-col items-center space-y-2 p-4 bg-slate-800/30 rounded-xl border-2 border-dashed border-gray-600 hover:border-blue-400 transition-colors pointer-events-none">
             <Droplets className="h-6 w-6" />
             <span className="font-medium">Drop chemicals here</span>
           </div>
