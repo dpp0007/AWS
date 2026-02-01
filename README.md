@@ -30,8 +30,7 @@ ELIXRA is a comprehensive virtual chemistry laboratory platform combining intera
 
 - Node.js 18+
 - Python 3.8+
-- Ollama (for offline mode)
-- Google Gemini API key (for online mode)
+- Google Gemini API key
 
 ### Installation
 
@@ -46,7 +45,7 @@ npm install
 # Create environment file
 cp .env.example .env.local
 
-# Update .env.local with your API keys
+# Update .env.local with your Gemini API key
 ```
 
 ### Run Frontend Only
@@ -58,15 +57,7 @@ npm run dev
 
 ### Run Full Stack (Frontend + Backend)
 
-#### 1. Start Ollama (for chat)
-
-```bash
-ollama serve
-# In another terminal:
-ollama pull llama3.2:3b-instruct-q4_K_M
-```
-
-#### 2. Start Backend
+#### 1. Start Backend
 
 ```bash
 cd backend
@@ -79,10 +70,10 @@ venv\Scripts\activate
 source venv/bin/activate
 
 pip install -r requirements.txt
-python main_simple.py
+python main.py
 ```
 
-#### 3. Start Frontend
+#### 2. Start Frontend
 
 ```bash
 npm run dev
@@ -102,12 +93,8 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 # Database (optional)
 MONGODB_URI=mongodb+srv://your-connection-string
 
-# AI - Choose one:
-# Option 1: Online with Gemini
+# AI - Gemini API
 GEMINI_API_KEY=your-gemini-api-key
-
-# Option 2: Offline with Ollama (no key needed)
-# Just run: ollama serve
 
 # Authentication
 NEXTAUTH_URL=http://localhost:3000
@@ -171,8 +158,7 @@ GEMINI_API_KEY=your-gemini-api-key
 ### Backend
 - **Runtime**: Python 3.8+
 - **Framework**: FastAPI
-- **AI (Primary)**: Google Gemini 2.5 Flash
-- **AI (Fallback)**: Ollama + Llama 3.2
+- **AI**: Google Gemini 2.5 Flash
 - **Server**: Uvicorn
 - **Async**: asyncio + httpx
 
@@ -224,7 +210,7 @@ Content-Type: application/json
 }
 ```
 
-### Reaction Analysis (Gemini + Fallback)
+### Reaction Analysis (Gemini)
 ```
 POST /analyze-reaction
 Content-Type: application/json
@@ -249,9 +235,8 @@ Response:
 ```json
 {
   "status": "healthy",
-  "ollama": "connected",
   "gemini": "connected",
-  "models": ["llama3.2:3b-instruct-q4_K_M"]
+  "model": "gemini-2.5-flash"
 }
 ```
 
@@ -296,15 +281,6 @@ We welcome contributions! Please follow these steps:
 
 ## 🐛 Troubleshooting
 
-### Ollama Connection Issues
-```bash
-# Check if Ollama is running
-ollama list
-
-# Start Ollama
-ollama serve
-```
-
 ### Backend Not Starting
 ```bash
 # Check Python version (need 3.8+)
@@ -313,8 +289,12 @@ python --version
 # Install dependencies
 pip install -r requirements.txt
 
+# Check Gemini API key is set
+echo %GEMINI_API_KEY%  # Windows
+echo $GEMINI_API_KEY   # macOS/Linux
+
 # Start backend
-python main_simple.py
+python main.py
 ```
 
 ### Frontend Build Issues

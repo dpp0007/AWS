@@ -120,10 +120,22 @@ export default function ReactionPanel({ experiment, result, isLoading }: Reactio
                     </motion.div>
                   ))}
                 </div>
-                <div className="mt-3 p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
-                  <p className="text-xs text-orange-800 dark:text-orange-200 text-center">
-                    ⚡ Equipment settings are affecting this reaction
+                <div className="mt-4 p-3 bg-orange-100 dark:bg-orange-900/30 rounded-lg border border-orange-200 dark:border-orange-700">
+                  <p className="text-xs text-orange-800 dark:text-orange-200 font-semibold mb-2">
+                    ⚡ Equipment Effects on Reaction:
                   </p>
+                  <ul className="text-xs text-orange-700 dark:text-orange-300 space-y-1">
+                    {experiment.equipment.some(eq => eq.name.includes('bunsen') || eq.name.includes('hot')) && (
+                      <li>🔥 Increased temperature accelerates reaction rate</li>
+                    )}
+                    {experiment.equipment.some(eq => eq.name.includes('stirrer')) && (
+                      <li>🔄 Stirring increases contact between reactants</li>
+                    )}
+                    {experiment.equipment.some(eq => eq.name.includes('bunsen')) && (
+                      <li>⚠️ High heat may cause decomposition of products</li>
+                    )}
+                    <li>✓ Reaction conditions have been optimized</li>
+                  </ul>
                 </div>
               </motion.div>
             )}
@@ -260,6 +272,61 @@ export default function ReactionPanel({ experiment, result, isLoading }: Reactio
                   </p>
                 </div>
               </div>
+            )}
+
+            {/* Equipment Impact Summary */}
+            {experiment?.equipment && experiment.equipment.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 rounded-xl p-6 border-2 border-blue-300 dark:border-blue-700"
+              >
+                <h3 className="font-bold text-blue-900 dark:text-blue-100 mb-4 flex items-center">
+                  <Zap className="h-5 w-5 mr-2 text-blue-600" />
+                  How Equipment Changed This Reaction
+                </h3>
+                <div className="space-y-3">
+                  {experiment.equipment.some(eq => eq.name.includes('bunsen-burner')) && (
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                      <p className="font-semibold text-blue-900 dark:text-blue-100 text-sm mb-1">
+                        🔥 Bunsen Burner Effect:
+                      </p>
+                      <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1 ml-4">
+                        <li>• Reaction rate increased significantly</li>
+                        <li>• Solution temperature elevated</li>
+                        <li>• Faster product formation</li>
+                        <li>• May cause thermal decomposition of sensitive products</li>
+                      </ul>
+                    </div>
+                  )}
+                  {experiment.equipment.some(eq => eq.name.includes('hot-plate')) && (
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                      <p className="font-semibold text-blue-900 dark:text-blue-100 text-sm mb-1">
+                        🌡️ Hot Plate Effect:
+                      </p>
+                      <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1 ml-4">
+                        <li>• Controlled heating applied</li>
+                        <li>• Reaction rate moderately increased</li>
+                        <li>• More stable than open flame</li>
+                        <li>• Better for temperature-sensitive reactions</li>
+                      </ul>
+                    </div>
+                  )}
+                  {experiment.equipment.some(eq => eq.name.includes('stirrer')) && (
+                    <div className="p-3 bg-white dark:bg-gray-800 rounded-lg border border-blue-200 dark:border-blue-700">
+                      <p className="font-semibold text-blue-900 dark:text-blue-100 text-sm mb-1">
+                        🔄 Magnetic Stirrer Effect:
+                      </p>
+                      <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1 ml-4">
+                        <li>• Increased mixing of reactants</li>
+                        <li>• Better contact between chemicals</li>
+                        <li>• Faster and more uniform reaction</li>
+                        <li>• Prevents settling of precipitates</li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
             )}
 
             {/* Products */}

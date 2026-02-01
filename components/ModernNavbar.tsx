@@ -11,10 +11,8 @@ const navItems = [
   { name: 'Home', path: '/' },
   { name: 'Lab', path: '/lab' },
   { name: 'AI Teacher', path: '/avatar' },
-  { name: 'Features', path: '/features' },
   { name: 'Quiz', path: '/quiz' },
   { name: 'Molecules', path: '/molecules' },
-  { name: 'Equipment', path: '/equipment' },
   { name: 'Spectroscopy', path: '/spectroscopy' },
   { name: 'Collaborate', path: '/collaborate' }
 ]

@@ -50,7 +50,7 @@ Format as JSON:
 
 Be scientifically accurate. Return ONLY valid JSON.`
 
-    // Call Ollama backend
+    // Call Gemini backend
     const response = await fetch(`${backendUrl}/chat`, {
       method: 'POST',
       headers: {

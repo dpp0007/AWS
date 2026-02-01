@@ -46,7 +46,7 @@ Format as JSON:
 
 Be scientifically accurate. Return ONLY valid JSON.`
 
-    // Use Ollama backend instead of Gemini
+    // Use Gemini backend for molecule analysis
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
     
     const response = await fetch(`${backendUrl}/chat`, {

@@ -1,7 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-// Mark as dynamic route (generates unique content each time)
 export const dynamic = 'force-dynamic'
+
+interface QuizConfig {
+  difficulty: 'easy' | 'medium' | 'hard'
+  num_questions: number
+  question_types: string[]
+  include_timer: boolean
+  time_limit_per_question: number | null
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const config: QuizConfig = await request.json()
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+
+    console.log('Quiz config:', config)
+
+    // Call backend to generate quiz
+    const response = await fetch(`${backendUrl}/quiz/generate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(config)
+    })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Backend error:', response.status, errorText)
+      throw new Error(`Backend returned ${response.status}: ${errorText}`)
+    }
+
+    const data = await response.json()
+    console.log('Quiz generated:', data)
+
+    return NextResponse.json(data)
+  } catch (error) {
+    console.error('Quiz generation error:', error)
+    return NextResponse.json(
+      { error: `Failed to generate quiz: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { status: 500 }
+    )
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -41,7 +83,7 @@ Make questions progressively harder. Include:
 
 Return ONLY valid JSON, no markdown or extra text.`
 
-    // Call Ollama backend
+    // Call Gemini backend
     const response = await fetch(`${backendUrl}/chat`, {
       method: 'POST',
       headers: {
