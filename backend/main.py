@@ -6,7 +6,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
 import google.generativeai as genai
 import json
 import asyncio
@@ -350,6 +350,7 @@ class QuizConfig(BaseModel):
     question_types: List[str]  # explanation, mcq, complete_reaction, balance_equation, guess_product, etc
     include_timer: bool
     time_limit_per_question: Optional[int] = None  # in seconds
+    user_id: Optional[str] = None
 
 class QuizQuestion(BaseModel):
     id: int
@@ -360,16 +361,20 @@ class QuizQuestion(BaseModel):
     explanation: str
     topic: str
 
+class UserAnswer(BaseModel):
+    question_id: int
+    user_answer: str
+    time_taken: int  # in seconds
+    suggestions: Optional[str] = None
+
 class QuizSession(BaseModel):
     session_id: str
     config: QuizConfig
     questions: List[QuizQuestion]
     current_question_index: int = 0
-
-class UserAnswer(BaseModel):
-    question_id: int
-    user_answer: str
-    time_taken: int  # in seconds
+    user_answers: Dict[int, UserAnswer] = {}
+    user_id: Optional[str] = None
+    completed: bool = False
 
 class QuizResult(BaseModel):
     question_id: int
@@ -397,32 +402,78 @@ async def generate_quiz(config: QuizConfig):
     # Generate questions based on config
     questions = []
     
+    # Pre-select topics to ensure diversity
+    all_topics = [
+        "Atomic Structure", "Periodic Table", "Chemical Bonding", "Stoichiometry", 
+        "States of Matter", "Thermodynamics", "Chemical Equilibrium", "Acids and Bases",
+        "Redox Reactions", "Electrochemistry", "Chemical Kinetics", "Organic Chemistry Basics",
+        "Hydrocarbons", "Alcohols and Ethers", "Aldehydes and Ketones", "Carboxylic Acids",
+        "Biomolecules", "Polymers", "Environmental Chemistry", "Nuclear Chemistry"
+    ]
+    random.shuffle(all_topics)
+    
+    # Keep track of generated question texts/hashes to enforce uniqueness
+    generated_questions_texts = []
+    
     for i in range(config.num_questions):
         question_type = random.choice(config.question_types)
         
-        # Generate question based on type
-        if question_type == "mcq":
-            question = await generate_mcq_question(config.difficulty)
-        elif question_type == "explanation":
-            question = await generate_explanation_question(config.difficulty)
-        elif question_type == "complete_reaction":
-            question = await generate_complete_reaction_question(config.difficulty)
-        elif question_type == "balance_equation":
-            question = await generate_balance_equation_question(config.difficulty)
-        elif question_type == "guess_product":
-            question = await generate_guess_product_question(config.difficulty)
-        else:
-            question = await generate_mcq_question(config.difficulty)
+        # Select a unique topic for this question if available
+        topic = all_topics[i % len(all_topics)]
         
+        # Try up to 3 times to generate a unique question
+        question = None
+        for attempt in range(3):
+            # Pass previously generated question texts to avoid
+            avoid_list = generated_questions_texts[-5:] # Keep it manageable
+            
+            if question_type == "mcq":
+                temp_q = await generate_mcq_question(config.difficulty, topic, avoid_list)
+            elif question_type == "explanation":
+                temp_q = await generate_explanation_question(config.difficulty, topic, avoid_list)
+            elif question_type == "complete_reaction":
+                temp_q = await generate_complete_reaction_question(config.difficulty, topic, avoid_list)
+            elif question_type == "balance_equation":
+                temp_q = await generate_balance_equation_question(config.difficulty, topic, avoid_list)
+            elif question_type == "guess_product":
+                temp_q = await generate_guess_product_question(config.difficulty, topic, avoid_list)
+            else:
+                temp_q = await generate_mcq_question(config.difficulty, topic, avoid_list)
+            
+            # Check uniqueness (simple fuzzy match or exact match)
+            is_duplicate = False
+            for existing_text in generated_questions_texts:
+                # Check for high similarity or exact match
+                if temp_q.question_text.lower().strip() == existing_text.lower().strip():
+                    is_duplicate = True
+                    break
+                # Basic containment check for very similar questions
+                if len(temp_q.question_text) > 10 and temp_q.question_text.lower() in existing_text.lower():
+                    is_duplicate = True
+                    break
+            
+            if not is_duplicate:
+                question = temp_q
+                break
+            else:
+                print(f"Duplicate generated, retrying ({attempt+1}/3): {temp_q.question_text[:30]}...")
+        
+        # If still duplicate after retries, use it anyway but log it (or could fetch fallback)
+        if not question:
+            print("Warning: Could not generate unique question after retries")
+            question = temp_q
+
         question.id = i + 1
         questions.append(question)
+        generated_questions_texts.append(question.question_text)
     
     # Create session
     session = QuizSession(
         session_id=session_id,
         config=config,
         questions=questions,
-        current_question_index=0
+        current_question_index=0,
+        user_id=config.user_id
     )
     
     quiz_sessions[session_id] = session
@@ -436,25 +487,56 @@ async def generate_quiz(config: QuizConfig):
         "first_question": questions[0].dict() if questions else None
     }
 
-async def generate_mcq_question(difficulty: str) -> QuizQuestion:
+async def generate_mcq_question(difficulty: str, topic: str = None, avoid_list: List[str] = None) -> QuizQuestion:
     """Generate MCQ question"""
-    prompt = f"""Generate a multiple choice chemistry question at {difficulty} level.
+    import random
     
-Return ONLY valid JSON (no other text):
-{{"question":"[question text]","options":["[option1]","[option2]","[option3]","[option4]"],"correct_answer":"[correct option]","explanation":"[detailed explanation]","topic":"[topic name]"}}"""
+    if not topic:
+        topics = [
+            "Atomic Structure", "Periodic Table", "Chemical Bonding", "Stoichiometry", 
+            "States of Matter", "Thermodynamics", "Chemical Equilibrium", "Acids and Bases",
+            "Redox Reactions", "Electrochemistry", "Chemical Kinetics", "Organic Chemistry Basics",
+            "Hydrocarbons", "Alcohols and Ethers", "Aldehydes and Ketones", "Carboxylic Acids",
+            "Biomolecules", "Polymers", "Environmental Chemistry", "Nuclear Chemistry"
+        ]
+        topic = random.choice(topics)
+    
+    avoid_prompt = ""
+    if avoid_list:
+        avoid_prompt = f"Do NOT generate any of the following questions or anything very similar: {json.dumps(avoid_list)}"
+
+    prompt = f"""Generate a unique multiple choice chemistry question about {topic} at {difficulty} level.
+    Ensure the question is different from common examples like 'pH of water' or 'atomic number of Carbon'.
+    {avoid_prompt}
+    
+    Return ONLY valid JSON (no other text).
+    IMPORTANT: Ensure all strings are single-line and properly escaped. Do not use unescaped newlines.
+    
+    JSON Structure:
+    {{"question":"[question text]","options":["[option1]","[option2]","[option3]","[option4]"],"correct_answer":"[correct option]","explanation":"[detailed explanation]","topic":"{topic}"}}"""
     
     model = genai.GenerativeModel(GEMINI_MODEL)
     response = model.generate_content(
         prompt,
         stream=False,
         generation_config=genai.types.GenerationConfig(
-            temperature=0.8,
-            max_output_tokens=500,
+            temperature=0.7,
+            max_output_tokens=2000,
+            response_mime_type="application/json"
         )
     )
     
     try:
-        text = response.text.strip().replace('```json', '').replace('```', '').strip()
+        text = response.text.strip()
+        # Clean up markdown code blocks if present
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+        
         data = json.loads(text)
         return QuizQuestion(
             id=0,
@@ -463,39 +545,96 @@ Return ONLY valid JSON (no other text):
             options=data.get("options", []),
             correct_answer=data.get("correct_answer", ""),
             explanation=data.get("explanation", ""),
-            topic=data.get("topic", "General Chemistry")
+            topic=data.get("topic", topic)
         )
     except Exception as e:
         print(f"Error generating MCQ: {e}")
+        # Fallback with random variation to avoid exact duplicates
+        fallback_questions = [
+            {
+                "q": "Which of the following is an alkali metal?",
+                "opts": ["Sodium", "Calcium", "Iron", "Zinc"],
+                "ans": "Sodium",
+                "exp": "Alkali metals are in Group 1 of the periodic table.",
+                "top": "Periodic Table"
+            },
+            {
+                "q": "What is the main gas found in the air we breathe?",
+                "opts": ["Oxygen", "Nitrogen", "Carbon Dioxide", "Hydrogen"],
+                "ans": "Nitrogen",
+                "exp": "Nitrogen makes up about 78% of Earth's atmosphere.",
+                "top": "Environmental Chemistry"
+            },
+            {
+                "q": "What is the chemical formula for Methane?",
+                "opts": ["CH4", "C2H6", "CO2", "H2O"],
+                "ans": "CH4",
+                "exp": "Methane is the simplest hydrocarbon with formula CH4.",
+                "top": "Hydrocarbons"
+            },
+            {
+                "q": "Which bond involves the sharing of electron pairs?",
+                "opts": ["Ionic", "Covalent", "Metallic", "Hydrogen"],
+                "ans": "Covalent",
+                "exp": "Covalent bonding involves the sharing of electrons between atoms.",
+                "top": "Chemical Bonding"
+            }
+        ]
+        q = random.choice(fallback_questions)
         return QuizQuestion(
             id=0,
-            question_text="What is the atomic number of Carbon?",
+            question_text=q["q"],
             question_type="mcq",
-            options=["4", "6", "8", "12"],
-            correct_answer="6",
-            explanation="Carbon has 6 protons in its nucleus.",
-            topic="Atomic Structure"
+            options=q["opts"],
+            correct_answer=q["ans"],
+            explanation=q["exp"],
+            topic=q["top"]
         )
 
-async def generate_explanation_question(difficulty: str) -> QuizQuestion:
+async def generate_explanation_question(difficulty: str, topic: str = None, avoid_list: List[str] = None) -> QuizQuestion:
     """Generate explanation question"""
-    prompt = f"""Generate a chemistry explanation question at {difficulty} level that requires a detailed answer.
+    import random
     
-Return ONLY valid JSON (no other text):
-{{"question":"[question text]","correct_answer":"[expected answer]","explanation":"[detailed explanation]","topic":"[topic name]"}}"""
+    if not topic:
+        topics = ["General Chemistry", "Atomic Structure", "Periodic Trends", "Bonding", "Thermodynamics", "Kinetics"]
+        topic = random.choice(topics)
+
+    avoid_prompt = ""
+    if avoid_list:
+        avoid_prompt = f"Do NOT generate any of the following questions or anything very similar: {json.dumps(avoid_list)}"
+
+    prompt = f"""Generate a unique chemistry explanation question about {topic} at {difficulty} level that requires a detailed answer.
+    Ensure the question is not a common one (like "What is an atom?") and is specific to the topic.
+    {avoid_prompt}
+    
+    Return ONLY valid JSON (no other text).
+    IMPORTANT: Ensure all strings are single-line and properly escaped. Do not use unescaped newlines.
+    
+    JSON Structure:
+    {{"question":"[question text]","correct_answer":"[expected answer]","explanation":"[detailed explanation]","topic":"{topic}"}}"""
     
     model = genai.GenerativeModel(GEMINI_MODEL)
     response = model.generate_content(
         prompt,
         stream=False,
         generation_config=genai.types.GenerationConfig(
-            temperature=0.8,
-            max_output_tokens=500,
+            temperature=0.7,
+            max_output_tokens=1000,
+            response_mime_type="application/json"
         )
     )
     
     try:
-        text = response.text.strip().replace('```json', '').replace('```', '').strip()
+        text = response.text.strip()
+        # Clean up markdown code blocks if present
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+
         data = json.loads(text)
         return QuizQuestion(
             id=0,
@@ -503,38 +642,63 @@ Return ONLY valid JSON (no other text):
             question_type="explanation",
             correct_answer=data.get("correct_answer", ""),
             explanation=data.get("explanation", ""),
-            topic=data.get("topic", "General Chemistry")
+            topic=data.get("topic", topic)
         )
     except Exception as e:
         print(f"Error generating explanation question: {e}")
         return QuizQuestion(
             id=0,
-            question_text="Explain what is a chemical bond.",
+            question_text=f"Explain the concept of {topic} in detail.",
             question_type="explanation",
-            correct_answer="A chemical bond is a force of attraction between atoms.",
-            explanation="Chemical bonds hold atoms together in molecules.",
-            topic="Chemical Bonding"
+            correct_answer=f"The concept of {topic} involves...",
+            explanation=f"This topic covers the fundamental principles of {topic}.",
+            topic=topic
         )
 
-async def generate_complete_reaction_question(difficulty: str) -> QuizQuestion:
+async def generate_complete_reaction_question(difficulty: str, topic: str = None, avoid_list: List[str] = None) -> QuizQuestion:
     """Generate complete the reaction question"""
-    prompt = f"""Generate a chemistry question at {difficulty} level where the user completes a chemical reaction.
+    import random
     
-Return ONLY valid JSON (no other text):
-{{"question":"[incomplete reaction equation]","correct_answer":"[complete equation]","explanation":"[explanation of the reaction]","topic":"[topic name]"}}"""
+    if not topic:
+        topics = ["Combustion", "Acid-Base", "Precipitation", "Redox", "Synthesis", "Decomposition"]
+        topic = random.choice(topics)
+
+    avoid_prompt = ""
+    if avoid_list:
+        avoid_prompt = f"Do NOT generate any of the following questions or anything very similar: {json.dumps(avoid_list)}"
+
+    prompt = f"""Generate a unique chemistry question about {topic} at {difficulty} level where the user completes a chemical reaction.
+    Avoid common reactions like H2 + O2.
+    {avoid_prompt}
+    
+    Return ONLY valid JSON (no other text).
+    IMPORTANT: Ensure all strings are single-line and properly escaped. Do not use unescaped newlines.
+    
+    JSON Structure:
+    {{"question":"[incomplete reaction equation]","correct_answer":"[complete equation]","explanation":"[explanation of the reaction]","topic":"{topic}"}}"""
     
     model = genai.GenerativeModel(GEMINI_MODEL)
     response = model.generate_content(
         prompt,
         stream=False,
         generation_config=genai.types.GenerationConfig(
-            temperature=0.8,
-            max_output_tokens=500,
+            temperature=0.7,
+            max_output_tokens=1000,
+            response_mime_type="application/json"
         )
     )
     
     try:
-        text = response.text.strip().replace('```json', '').replace('```', '').strip()
+        text = response.text.strip()
+        # Clean up markdown code blocks if present
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+
         data = json.loads(text)
         return QuizQuestion(
             id=0,
@@ -542,38 +706,63 @@ Return ONLY valid JSON (no other text):
             question_type="complete_reaction",
             correct_answer=data.get("correct_answer", ""),
             explanation=data.get("explanation", ""),
-            topic=data.get("topic", "Reactions")
+            topic=data.get("topic", topic)
         )
     except Exception as e:
         print(f"Error generating complete reaction question: {e}")
         return QuizQuestion(
             id=0,
-            question_text="Complete: H2 + O2 → ?",
+            question_text=f"Complete the reaction for {topic}...",
             question_type="complete_reaction",
-            correct_answer="H2O",
-            explanation="Hydrogen and oxygen combine to form water.",
-            topic="Combustion Reactions"
+            correct_answer="Products...",
+            explanation="Reactants combine to form products.",
+            topic=topic
         )
 
-async def generate_balance_equation_question(difficulty: str) -> QuizQuestion:
+async def generate_balance_equation_question(difficulty: str, topic: str = None, avoid_list: List[str] = None) -> QuizQuestion:
     """Generate balance equation question"""
-    prompt = f"""Generate a chemistry question at {difficulty} level where the user balances a chemical equation.
+    import random
     
-Return ONLY valid JSON (no other text):
-{{"question":"[unbalanced equation]","correct_answer":"[balanced equation]","explanation":"[explanation of balancing]","topic":"[topic name]"}}"""
+    if not topic:
+        topics = ["Stoichiometry", "Redox", "Combustion", "Precipitation"]
+        topic = random.choice(topics)
+
+    avoid_prompt = ""
+    if avoid_list:
+        avoid_prompt = f"Do NOT generate any of the following questions or anything very similar: {json.dumps(avoid_list)}"
+
+    prompt = f"""Generate a unique chemistry question about {topic} at {difficulty} level where the user balances a chemical equation.
+    Avoid common examples like Fe + O2.
+    {avoid_prompt}
+    
+    Return ONLY valid JSON (no other text).
+    IMPORTANT: Ensure all strings are single-line and properly escaped. Do not use unescaped newlines.
+    
+    JSON Structure:
+    {{"question":"[unbalanced equation]","correct_answer":"[balanced equation]","explanation":"[explanation of balancing]","topic":"{topic}"}}"""
     
     model = genai.GenerativeModel(GEMINI_MODEL)
     response = model.generate_content(
         prompt,
         stream=False,
         generation_config=genai.types.GenerationConfig(
-            temperature=0.8,
-            max_output_tokens=500,
+            temperature=0.7,
+            max_output_tokens=1000,
+            response_mime_type="application/json"
         )
     )
     
     try:
-        text = response.text.strip().replace('```json', '').replace('```', '').strip()
+        text = response.text.strip()
+        # Clean up markdown code blocks if present
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+
         data = json.loads(text)
         return QuizQuestion(
             id=0,
@@ -581,38 +770,63 @@ Return ONLY valid JSON (no other text):
             question_type="balance_equation",
             correct_answer=data.get("correct_answer", ""),
             explanation=data.get("explanation", ""),
-            topic=data.get("topic", "Stoichiometry")
+            topic=data.get("topic", topic)
         )
     except Exception as e:
         print(f"Error generating balance equation question: {e}")
         return QuizQuestion(
             id=0,
-            question_text="Balance: Fe + O2 → Fe2O3",
+            question_text=f"Balance the equation for {topic}",
             question_type="balance_equation",
-            correct_answer="4Fe + 3O2 → 2Fe2O3",
-            explanation="Balance atoms on both sides of the equation.",
-            topic="Balancing Equations"
+            correct_answer="Balanced equation...",
+            explanation="Ensure atoms are conserved.",
+            topic=topic
         )
 
-async def generate_guess_product_question(difficulty: str) -> QuizQuestion:
+async def generate_guess_product_question(difficulty: str, topic: str = None, avoid_list: List[str] = None) -> QuizQuestion:
     """Generate guess the product question"""
-    prompt = f"""Generate a chemistry question at {difficulty} level where the user guesses the product of a reaction.
+    import random
     
-Return ONLY valid JSON (no other text):
-{{"question":"[reactants given]","correct_answer":"[product]","explanation":"[explanation of the reaction]","topic":"[topic name]"}}"""
+    if not topic:
+        topics = ["Reactions", "Synthesis", "Decomposition", "Single Replacement", "Double Replacement"]
+        topic = random.choice(topics)
+
+    avoid_prompt = ""
+    if avoid_list:
+        avoid_prompt = f"Do NOT generate any of the following questions or anything very similar: {json.dumps(avoid_list)}"
+
+    prompt = f"""Generate a unique chemistry question about {topic} at {difficulty} level where the user guesses the product of a reaction.
+    Avoid common examples like Na + Cl2.
+    {avoid_prompt}
+    
+    Return ONLY valid JSON (no other text).
+    IMPORTANT: Ensure all strings are single-line and properly escaped. Do not use unescaped newlines.
+    
+    JSON Structure:
+    {{"question":"[reactants given]","correct_answer":"[product]","explanation":"[explanation of the reaction]","topic":"{topic}"}}"""
     
     model = genai.GenerativeModel(GEMINI_MODEL)
     response = model.generate_content(
         prompt,
         stream=False,
         generation_config=genai.types.GenerationConfig(
-            temperature=0.8,
-            max_output_tokens=500,
+            temperature=0.7,
+            max_output_tokens=1000,
+            response_mime_type="application/json"
         )
     )
     
     try:
-        text = response.text.strip().replace('```json', '').replace('```', '').strip()
+        text = response.text.strip()
+        # Clean up markdown code blocks if present
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.startswith("```"):
+            text = text[3:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+
         data = json.loads(text)
         return QuizQuestion(
             id=0,
@@ -620,17 +834,17 @@ Return ONLY valid JSON (no other text):
             question_type="guess_product",
             correct_answer=data.get("correct_answer", ""),
             explanation=data.get("explanation", ""),
-            topic=data.get("topic", "Reactions")
+            topic=data.get("topic", topic)
         )
     except Exception as e:
         print(f"Error generating guess product question: {e}")
         return QuizQuestion(
             id=0,
-            question_text="What is the product of: Na + Cl2 → ?",
+            question_text=f"What is the product of this {topic} reaction?",
             question_type="guess_product",
-            correct_answer="NaCl",
-            explanation="Sodium and chlorine react to form sodium chloride.",
-            topic="Synthesis Reactions"
+            correct_answer="Product...",
+            explanation="Reactants form products.",
+            topic=topic
         )
 
 @app.get("/quiz/session/{session_id}/question/{question_index}")
@@ -646,10 +860,16 @@ async def get_question(session_id: str, question_index: int):
     question = session.questions[question_index]
     session.current_question_index = question_index
     
+    # Get existing answer if any
+    user_answer = None
+    if question.id in session.user_answers:
+        user_answer = session.user_answers[question.id].user_answer
+
     return {
         "question_number": question_index + 1,
         "total_questions": len(session.questions),
         "question": question.dict(),
+        "user_answer": user_answer,
         "can_go_back": question_index > 0,
         "can_go_forward": question_index < len(session.questions) - 1
     }
@@ -680,18 +900,27 @@ User's answer: {answer.user_answer}
 Correct answer: {question.correct_answer}
 Topic: {question.topic}
 
-Provide specific learning suggestions to help them understand this topic better. Keep it concise."""
+Provide 3 short, specific learning suggestions (bullet points) to help them understand this topic better. 
+Do not include any introductory text like "Here are suggestions". Start directly with the first suggestion."""
         
-        model = genai.GenerativeModel(GEMINI_MODEL)
-        response = model.generate_content(
-            prompt,
-            stream=False,
-            generation_config=genai.types.GenerationConfig(
-                temperature=0.7,
-                max_output_tokens=300,
+        try:
+            model = genai.GenerativeModel(GEMINI_MODEL)
+            response = model.generate_content(
+                prompt,
+                stream=False,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.7,
+                    max_output_tokens=300,
+                )
             )
-        )
-        suggestions = response.text.strip()
+            suggestions = response.text.strip()
+        except Exception as e:
+            print(f"Error generating suggestions: {e}")
+            suggestions = "Review the topic in your textbook."
+
+    # Update answer with suggestions and store in session
+    answer.suggestions = suggestions
+    session.user_answers[answer.question_id] = answer
     
     result = QuizResult(
         question_id=answer.question_id,
@@ -715,6 +944,9 @@ async def finish_quiz(session_id: str, answers: List[UserAnswer]):
         raise HTTPException(status_code=404, detail="Quiz session not found")
     
     session = quiz_sessions[session_id]
+    if session.completed:
+        raise HTTPException(status_code=400, detail="Quiz already completed")
+        
     results = []
     correct_count = 0
     total_time = 0
@@ -735,27 +967,38 @@ async def finish_quiz(session_id: str, answers: List[UserAnswer]):
         
         total_time += answer.time_taken
         
-        # Generate suggestions if wrong
-        suggestions = ""
-        if not is_correct:
-            prompt = f"""The user answered incorrectly to this chemistry question:
+        # Get suggestions from existing session data or client data, or generate if missing
+        suggestions = answer.suggestions or ""
+        
+        # Check if we already have it in session (from submit-answer)
+        if not suggestions and answer.question_id in session.user_answers:
+             suggestions = session.user_answers[answer.question_id].suggestions or ""
+             
+        # Generate if still missing and incorrect
+        if not is_correct and not suggestions:
+            try:
+                prompt = f"""The user answered incorrectly to this chemistry question:
 Question: {question.question_text}
 User's answer: {answer.user_answer}
 Correct answer: {question.correct_answer}
 Topic: {question.topic}
 
-Provide specific learning suggestions to help them understand this topic better. Keep it concise."""
-            
-            model = genai.GenerativeModel(GEMINI_MODEL)
-            response = model.generate_content(
-                prompt,
-                stream=False,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.7,
-                    max_output_tokens=300,
+Provide 3 short, specific learning suggestions (bullet points) to help them understand this topic better. 
+Do not include any introductory text like "Here are suggestions". Start directly with the first suggestion."""
+                
+                model = genai.GenerativeModel(GEMINI_MODEL)
+                response = model.generate_content(
+                    prompt,
+                    stream=False,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.7,
+                        max_output_tokens=300,
+                    )
                 )
-            )
-            suggestions = response.text.strip()
+                suggestions = response.text.strip()
+            except Exception as e:
+                print(f"Error generating suggestions in finish: {e}")
+                suggestions = "Review the topic materials."
         
         result = QuizResult(
             question_id=answer.question_id,
@@ -772,7 +1015,8 @@ Provide specific learning suggestions to help them understand this topic better.
         results.append(result.dict())
     
     # Clean up session
-    del quiz_sessions[session_id]
+    # del quiz_sessions[session_id]
+    session.completed = True
     
     score_percentage = (correct_count / len(answers)) * 100 if answers else 0
     

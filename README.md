@@ -1,341 +1,219 @@
-# 🧪 ELIXRA - Virtual Chemistry Lab with AI Avatar Teacher
+# 🧪 Elixra - The AI-Powered Chemistry Lab
 
-> An interactive, AI-powered virtual chemistry laboratory with 3D molecule visualization, AI-powered reaction analysis, and an intelligent avatar teacher.
+<div align="center">
+  <img src="public/Assets/Main Logo.svg" alt="Elixra Logo" width="200" />
+  <br />
+  <h3>Immersive Chemistry Education Platform</h3>
+  
+  [![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+  [![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?style=for-the-badge&logo=fastapi)](https://fastapi.tiangolo.com/)
+  [![Gemini AI](https://img.shields.io/badge/AI-Gemini%20Pro-blue?style=for-the-badge&logo=google)](https://deepmind.google/technologies/gemini/)
+  [![MongoDB](https://img.shields.io/badge/MongoDB-Database-47A248?style=for-the-badge&logo=mongodb)](https://www.mongodb.com/)
+</div>
 
-[![Next.js](https://img.shields.io/badge/Next.js-14-black?style=flat-square&logo=next.js)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-green?style=flat-square&logo=fastapi)](https://fastapi.tiangolo.com/)
-[![Gemini](https://img.shields.io/badge/Gemini-2.5%20Flash-blue?style=flat-square&logo=google)](https://ai.google.dev/)
-[![License](https://img.shields.io/badge/License-MIT-purple?style=flat-square)](LICENSE)
+---
 
-## 🎯 Overview
+## 📑 Table of Contents
+- [Overview](#-overview)
+- [Key Features](#-key-features)
+- [Architecture](#-architecture)
+- [Project Structure](#-project-structure)
+- [Installation & Setup](#-installation--setup)
+- [Configuration](#-configuration)
+- [API Documentation](#-api-documentation)
+- [Virtual Lab Equipment](#-virtual-lab-equipment)
+- [Contributing](#-contributing)
+- [License](#-license)
 
-ELIXRA is a comprehensive virtual chemistry laboratory platform combining interactive 3D visualization, AI-powered reaction analysis, and an intelligent avatar teacher. Perfect for students and educators exploring chemistry safely and interactively.
+---
 
-### Key Features
+## 🔭 Overview
 
-- **🎨 3D Molecule Visualization** - Interactive drag-and-drop molecule builder with real-time bonding
-- **🤖 AI Reaction Analysis** - Google Gemini 2.5 Flash (primary) with Ollama fallback
-- **🎭 Avatar Teacher** - ERA (ELIXRA Reaction Avatar) with chemistry explanations
-- **📊 Spectroscopy Tools** - UV-Vis, IR, and NMR spectrum analysis
-- **🧪 Lab Equipment** - Bunsen burner, hot plate, stirrer, centrifuge, balance, pH meter, thermometer, timer
-- **📱 Responsive Design** - Desktop, tablet, and mobile support
-- **🔐 Authentication** - NextAuth.js with secure session management
-- **⚡ Fast Backend** - FastAPI with streaming responses
-- **🔄 Automatic Fallback** - Seamless Gemini → Ollama fallback on errors
+**Elixra** is a next-generation educational platform that bridges the gap between theoretical chemistry and practical application. By leveraging **Google's Gemini AI**, 3D visualization technologies, and gamified learning paths, Elixra provides students with a safe, interactive, and intelligent environment to master complex chemical concepts.
 
-## 🚀 Quick Start
+### Value Proposition
+- **Safe Experimentation**: Perform dangerous or costly reactions in a risk-free virtual environment.
+- **Personalized Tutoring**: **ERA (Elixra Reactive Assistant)** provides real-time, context-aware guidance tailored to the student's learning pace.
+- **Visual Learning**: Interact with 3D molecular structures and simulated lab equipment to build intuitive understanding.
+
+---
+
+## 🚀 Key Features
+
+| Feature | Description |
+|:---:|:---|
+| <img src="public/Assets/Cards/Virtual Lab.svg" width="50" /> <br> **Virtual Lab** | Interactive workbench with realistic equipment physics and chemical reaction simulations. |
+| <img src="public/Assets/Cards/Ai Teacher.svg" width="50" /> <br> **AI Tutor (ERA)** | Intelligent assistant for Q&A, experiment guidance, and concept explanation. |
+| <img src="public/Assets/Cards/Quize.svg" width="50" /> <br> **Adaptive Quizzes** | Dynamic question generation (MCQ, Reactions) with detailed performance analysis. |
+| <img src="public/Assets/Cards/Molecule.svg" width="50" /> <br> **3D Molecules** | Interactive 3D viewer for atomic structures, bonding, and molecular geometry. |
+| <img src="public/Assets/Cards/Collabrate.svg" width="50" /> <br> **Collaboration** | Real-time collaborative features for group experiments and peer learning. |
+
+---
+
+## 🏗 Architecture
+
+Elixra follows a modern **Service-Oriented Architecture (SOA)**:
+
+```mermaid
+graph TD
+    Client[Next.js Client] -->|HTTP/REST| API[FastAPI Backend]
+    Client -->|WebSocket| WS[Real-time Comms]
+    API -->|Prompting| AI[Google Gemini API]
+    API -->|Auth/Data| DB[(MongoDB)]
+    Client -->|3D Rendering| Three[Three.js/Fiber]
+```
+
+- **Frontend**: Next.js 14 (App Router), Tailwind CSS, Framer Motion, React Three Fiber.
+- **Backend**: FastAPI (Python), Uvicorn.
+- **AI Engine**: Google Generative AI (Gemini 2.5 Flash).
+- **Database**: MongoDB (User data, progress tracking).
+
+---
+
+## 📂 Project Structure
+
+```bash
+d:\Elixra\build-o-thon
+├── 📁 app/                 # Next.js App Router pages & API routes
+│   ├── 📁 quiz/            # Quiz module (UI & Logic)
+│   ├── 📁 lab/             # Virtual Lab environment
+│   ├── 📁 api/             # Next.js Serverless Functions
+│   └── ...
+├── 📁 backend/             # Python FastAPI Server
+│   ├── main.py             # Entry point & API definitions
+│   └── requirements.txt    # Python dependencies
+├── 📁 components/          # Reusable React components
+│   ├── 📁 equipment-effects/ # Visual effects for lab gear
+│   └── ...
+├── 📁 public/              # Static assets
+│   └── 📁 Assets/          # SVGs and icons
+├── 📁 lib/                 # Utility functions & configs
+└── ...
+```
+
+---
+
+## ⚙ Installation & Setup
 
 ### Prerequisites
+- **Node.js** (v18+)
+- **Python** (v3.10+)
+- **MongoDB** (Local or Atlas)
+- **Google Cloud API Key** (for Gemini)
 
-- Node.js 18+
-- Python 3.8+
-- Google Gemini API key
-
-### Installation
-
+### 1. Clone the Repository
 ```bash
-# Clone repository
-git clone https://github.com/yourusername/elixra.git
+git clone https://github.com/your-org/elixra.git
 cd elixra/build-o-thon
+```
 
-# Install frontend dependencies
+### 2. Frontend Setup
+```bash
+# Install Node dependencies
 npm install
 
-# Create environment file
-cp .env.example .env.local
-
-# Update .env.local with your Gemini API key
-```
-
-### Run Frontend Only
-
-```bash
+# Start Development Server
 npm run dev
-# Open http://localhost:3000
+# > Ready on http://localhost:3000
 ```
 
-### Run Full Stack (Frontend + Backend)
-
-#### 1. Start Backend
-
+### 3. Backend Setup
 ```bash
 cd backend
+
+# Create Virtual Environment (Optional but recommended)
 python -m venv venv
+# Windows: venv\Scripts\activate
+# Mac/Linux: source venv/bin/activate
 
-# Windows
-venv\Scripts\activate
-
-# macOS/Linux
-source venv/bin/activate
-
+# Install Python dependencies
 pip install -r requirements.txt
+
+# Start FastAPI Server
 python main.py
+# > Chemistry Avatar API Starting...
+# > Backend URL: http://localhost:8000
 ```
 
-#### 2. Start Frontend
-
-```bash
-npm run dev
-# Open http://localhost:3000
-```
+---
 
 ## 🔧 Configuration
 
-### Environment Variables
+Create a `.env` file in the root directory:
 
-Create `.env.local`:
+| Variable | Description | Required |
+|:---|:---|:---:|
+| `GEMINI_API_KEY` | API Key for Google Gemini Model | ✅ |
+| `MONGODB_URI` | Connection string for MongoDB | ✅ |
+| `NEXTAUTH_SECRET` | Secret key for session encryption | ✅ |
+| `NEXTAUTH_URL` | Base URL (e.g., http://localhost:3000) | ✅ |
 
-```env
-# Frontend
-NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
+---
 
-# Database (optional)
-MONGODB_URI=mongodb+srv://your-connection-string
+## 📡 API Documentation
 
-# AI - Gemini API
-GEMINI_API_KEY=your-gemini-api-key
+The backend exposes several key endpoints. Full Swagger docs available at `http://localhost:8000/docs`.
 
-# Authentication
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-secret-key-change-in-production
-```
+### Quiz Generation
+- **Endpoint**: `POST /quiz/generate`
+- **Body**:
+  ```json
+  {
+    "difficulty": "medium",
+    "num_questions": 5,
+    "question_types": ["mcq", "explanation"],
+    "include_timer": true
+  }
+  ```
 
-### Backend Configuration
+### AI Chat (Streaming)
+- **Endpoint**: `POST /chat`
+- **Body**:
+  ```json
+  {
+    "message": "Explain covalent bonding",
+    "context": "User is looking at a Carbon atom",
+    "history": []
+  }
+  ```
 
-Backend uses `.env` file in `backend/` directory:
+---
 
-```env
-GEMINI_API_KEY=your-gemini-api-key
-```
+## ⚗ Virtual Lab Equipment
 
-## 🎮 Features
+Elixra features a suite of interactive tools:
 
-### 3D Molecule Builder
-- Drag-and-drop atoms
-- Create single, double, triple bonds
-- Real-time 3D visualization
-- Bond angle calculations
+<div align="center">
+  <img src="public/Assets/Equipments/Busen Burner.svg" width="60" alt="Bunsen Burner" title="Bunsen Burner" style="margin: 10px;" />
+  <img src="public/Assets/Equipments/Ph Meter.svg" width="60" alt="pH Meter" title="pH Meter" style="margin: 10px;" />
+  <img src="public/Assets/Equipments/Centrifuge.svg" width="60" alt="Centrifuge" title="Centrifuge" style="margin: 10px;" />
+  <img src="public/Assets/Equipments/Analytical Balance.svg" width="60" alt="Analytical Balance" title="Analytical Balance" style="margin: 10px;" />
+</div>
 
-### Reaction Analysis
-- **Primary**: Google Gemini 2.5 Flash (fast, accurate)
-- **Fallback**: Ollama (offline, reliable)
-- JSON response with reaction details
-- Automatic fallback on errors
-
-### Avatar Teacher (ERA)
-- Chemistry explanations
-- Real-time streaming responses
-- Conversation history context
-- Equipment-aware guidance
-
-### Spectroscopy Tools
-- UV-Vis spectrum analysis
-- IR spectrum with functional groups
-- NMR multiplicity visualization
-- Spectrum comparison
-
-### Lab Equipment
-- Bunsen Burner (0-1000°C)
-- Hot Plate (25-300°C)
-- Magnetic Stirrer (0-1500 RPM)
-- Centrifuge (0-5000 RPM)
-- Analytical Balance (0.0001g precision)
-- pH Meter (0-14 range)
-- Thermometer (-50°C to 300°C)
-- Lab Timer (countdown/countup)
-
-## 🛠️ Tech Stack
-
-### Frontend
-- **Framework**: Next.js 14 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **3D Graphics**: Three.js + React Three Fiber
-- **Animations**: Framer Motion
-- **State**: React Context + Hooks
-
-### Backend
-- **Runtime**: Python 3.8+
-- **Framework**: FastAPI
-- **AI**: Google Gemini 2.5 Flash
-- **Server**: Uvicorn
-- **Async**: asyncio + httpx
-
-## 📁 Project Structure
-
-```
-build-o-thon/
-├── app/                          # Next.js pages
-│   ├── page.tsx                  # Landing page
-│   ├── lab/                      # Lab interface
-│   ├── molecules/                # 3D molecule viewer
-│   ├── spectroscopy/             # Spectroscopy tools
-│   └── api/                      # API routes
-├── components/                   # React components
-│   ├── Molecule3DViewer.tsx      # 3D molecule visualization
-│   ├── SpectrumGraph.tsx         # Spectrum visualization
-│   ├── BondExplanation.tsx       # AI bond explanations
-│   └── ...
-├── lib/                          # Utilities
-│   ├── bondingLogic.ts           # Bond calculations
-│   ├── spectrumData.ts           # Spectrum datasets
-│   ├── aiBondReasoning.ts        # AI reasoning
-│   └── spectrumHandlers.ts       # Spectrum analysis
-├── types/                        # TypeScript types
-├── backend/                      # Python FastAPI
-│   ├── main_simple.py            # Main backend
-│   ├── requirements.txt          # Python dependencies
-│   └── .env                      # Backend config
-├── public/                       # Static assets
-├── .env.example                  # Environment template
-├── .env.local                    # Local config (git ignored)
-├── package.json                  # Frontend dependencies
-├── tsconfig.json                 # TypeScript config
-├── tailwind.config.js            # Tailwind config
-└── README.md                     # This file
-```
-
-## 🔄 API Endpoints
-
-### Chat (Ollama)
-```
-POST /chat
-Content-Type: application/json
-
-{
-  "message": "What is NaCl?",
-  "chemicals": ["NaCl"],
-  "history": []
-}
-```
-
-### Reaction Analysis (Gemini)
-```
-POST /analyze-reaction
-Content-Type: application/json
-
-{
-  "chemicals": ["NaCl", "AgNO3"],
-  "equipment": ["Beaker"]
-}
-```
-
-### WebSocket (Real-time Chat)
-```
-WS ws://localhost:8000/ws
-```
-
-### Health Check
-```
-GET /health
-```
-
-Response:
-```json
-{
-  "status": "healthy",
-  "gemini": "connected",
-  "model": "gemini-2.5-flash"
-}
-```
-
-## 🚀 Deployment
-
-### Vercel (Frontend)
-```bash
-npm run build
-vercel deploy
-```
-
-### Docker (Backend)
-```bash
-cd backend
-docker build -t elixra-backend .
-docker run -p 8000:8000 elixra-backend
-```
-
-## 📊 Performance
-
-- **Frontend**: Lighthouse 98/100
-- **Backend**: 500-800ms response time
-- **Gemini**: 1-2s with automatic Ollama fallback
-- **Bundle Size**: 365 kB (First Load JS)
+---
 
 ## 🤝 Contributing
 
 We welcome contributions! Please follow these steps:
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'feat: add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1.  **Fork** the repository.
+2.  Create a **Feature Branch** (`git checkout -b feature/NewExperiment`).
+3.  **Commit** your changes (`git commit -m 'Add titration simulation'`).
+4.  **Push** to the branch (`git push origin feature/NewExperiment`).
+5.  Open a **Pull Request**.
 
-### Code Style
-- Use TypeScript (strict mode)
-- Use functional components with hooks
-- Use Tailwind CSS for styling
-- Write clean, self-documenting code
-- Add comments for complex logic
-
-## 🐛 Troubleshooting
-
-### Backend Not Starting
-```bash
-# Check Python version (need 3.8+)
-python --version
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Check Gemini API key is set
-echo %GEMINI_API_KEY%  # Windows
-echo $GEMINI_API_KEY   # macOS/Linux
-
-# Start backend
-python main.py
-```
-
-### Frontend Build Issues
-```bash
-# Clear Next.js cache
-rm -rf .next
-
-# Reinstall dependencies
-npm install
-
-# Start dev server
-npm run dev
-```
-
-## 🔒 Security & Privacy
-
-- End-to-end encryption for sensitive data
-- Secure password hashing (bcrypt)
-- JWT token authentication
-- HTTPS only in production
-- No data selling (ever)
-- API keys stored in environment variables
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/yourusername/elixra/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/elixra/discussions)
-
-## 📜 License
-
-MIT License - See [LICENSE](LICENSE) file for details
-
-## 🙏 Acknowledgments
-
-- Google Gemini for AI capabilities
-- Ollama for offline AI
-- Next.js team for the amazing framework
-- Three.js for 3D graphics
-- Tailwind CSS for styling utilities
-- FastAPI for the backend framework
+### Coding Standards
+- **Frontend**: Follow ESLint rules, use functional components and Hooks.
+- **Backend**: Type hints (Pydantic), PEP 8 compliance.
 
 ---
 
-**Made with ❤️ by the ELIXRA Team**
+## 📄 License
+
+This project is licensed under the **MIT License**. See the `LICENSE` file for details.
+
+---
+
+<div align="center">
+  <sub>Built with ❤️ for the Future of Science Education</sub>
+</div>

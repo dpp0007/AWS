@@ -10,12 +10,15 @@ import {
   X, Loader2, Check
 } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
+import ExperimentDetailsModal from '@/components/ExperimentDetailsModal'
+import { ExperimentLog } from '@/types/chemistry'
 
 export default function ProfilePage() {
   const { user, experiments, deleteExperiment, toggleSaveExperiment, logout, isAuthenticated } = useAuth()
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<'history' | 'saved'>('saved')
   const [isEditing, setIsEditing] = useState(false)
+  const [selectedExperiment, setSelectedExperiment] = useState<ExperimentLog | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   
   // Edit form state
@@ -99,9 +102,9 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-slate-950 relative">
       {/* Animated Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div className="fixed inset-0 pointer-events-none z-0">
         <motion.div 
           style={{ y, opacity }}
           className="absolute w-full h-full"
@@ -113,7 +116,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Floating Particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div className="fixed inset-0 pointer-events-none z-0">
         {[...Array(15)].map((_, i) => (
           <motion.div
             key={i}
@@ -146,15 +149,16 @@ export default function ProfilePage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Profile Card */}
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="lg:col-span-1"
-          >
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden group">
-              <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              
-              <div className="relative z-10 flex flex-col items-center text-center">
+          <div className="lg:col-span-1 relative">
+            <div className="sticky top-8">
+              <motion.div 
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+              >
+                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-8 shadow-2xl relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  
+                  <div className="relative z-10 flex flex-col items-center text-center">
                 <div className="relative mb-6">
                   {user.image ? (
                     <img 
@@ -233,13 +237,15 @@ export default function ProfilePage() {
                 Unsaved experiments are automatically deleted after 30 days. Save your important work to keep it forever.
               </p>
             </div>
-          </motion.div>
+            </motion.div>
+            </div>
+          </div>
 
           {/* Main Content Area */}
           <div className="lg:col-span-2">
-            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl min-h-[600px] flex flex-col">
+            <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl shadow-2xl min-h-[600px] flex flex-col">
               {/* Tabs & Search Header */}
-              <div className="p-6 border-b border-white/10 bg-white/5">
+              <div className="p-6 border-b border-white/10 bg-white/5/80 backdrop-blur-xl sticky top-0 z-20 rounded-t-3xl">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex bg-black/20 p-1 rounded-xl backdrop-blur-md border border-white/5 w-fit">
                     <button
@@ -291,7 +297,8 @@ export default function ProfilePage() {
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, scale: 0.95 }}
-                          className="group bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-2xl p-5 transition-all duration-300 relative overflow-hidden"
+                          onClick={() => setSelectedExperiment(exp)}
+                          className="group bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-2xl p-5 transition-all duration-300 relative overflow-hidden cursor-pointer"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex items-start space-x-4">
@@ -382,6 +389,16 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      {/* Experiment Details Modal */}
+      <AnimatePresence>
+        {selectedExperiment && (
+          <ExperimentDetailsModal 
+            experiment={selectedExperiment} 
+            onClose={() => setSelectedExperiment(null)} 
+          />
+        )}
+      </AnimatePresence>
 
       {/* Edit Profile Modal */}
       <AnimatePresence>
