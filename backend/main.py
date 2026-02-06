@@ -5,7 +5,7 @@ Pure Gemini API implementation - no Ollama dependency
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 import google.generativeai as genai
 import json
@@ -48,6 +48,165 @@ class ChatRequest(BaseModel):
     history: Optional[List[MessageHistory]] = None
 
 # Health check
+class MoleculeGenerationRequest(BaseModel):
+    query: str
+
+import time
+
+class AtomRequest(BaseModel):
+    id: str
+    element: str
+    x: float
+    y: float
+    z: float
+
+class BondRequest(BaseModel):
+    id: str
+    from_id: str = Field(..., alias="from")
+    to_id: str = Field(..., alias="to")
+    type: str
+
+class MoleculeAnalysisRequest(BaseModel):
+    atoms: List[AtomRequest]
+    bonds: List[BondRequest]
+
+@app.post("/analyze-molecule")
+async def analyze_molecule(request: MoleculeAnalysisRequest):
+    """Analyze a molecule structure using Gemini"""
+    start_time = time.time()
+    
+    # Log request details
+    request_id = str(int(time.time() * 1000))
+    print(f"[{request_id}] 🧪 ANALYSIS REQUEST STARTED")
+    print(f"[{request_id}] Atoms: {len(request.atoms)}, Bonds: {len(request.bonds)}")
+    
+    try:
+        # Construct a description of the molecule from the atoms and bonds
+        atom_list = ", ".join([f"{a.element} (ID: {a.id})" for a in request.atoms])
+        bond_list = ", ".join([f"{b.type} bond between {b.from_id} and {b.to_id}" for b in request.bonds])
+        
+        prompt = f"""Analyze this molecular structure:
+        Atoms: {atom_list}
+        Bonds: {bond_list}
+        
+        Provide a comprehensive analysis in valid JSON format with the following structure:
+        {{
+          "name": "IUPAC Name or Common Name",
+          "formula": "Chemical Formula (e.g. C2H6O)",
+          "molecularWeight": 0.0,
+          "properties": {{
+            "state": "Gas/Liquid/Solid at room temp",
+            "solubility": "Solubility description",
+            "polarity": "Polar/Non-polar",
+            "boilingPoint": "Estimated boiling point in Celsius (number only)",
+            "meltingPoint": "Estimated melting point in Celsius (number only)"
+          }},
+          "stability": "Stable/Unstable",
+          "safety": {{
+            "flammability": "Low/Medium/High",
+            "toxicity": "Description",
+            "handling": "Precautions"
+          }},
+          "uses": ["Industrial use", "Common use", "Research"],
+          "description": "A detailed 2-3 sentence description of the molecule and its significance.",
+          "functionalGroups": ["Alcohol", "Amine", "Ketone", etc]
+        }}
+        
+        IMPORTANT:
+        1. Infer the molecule from the connectivity.
+        2. If it's a known molecule, provide accurate real-world data.
+        3. If it's a novel/theoretical molecule, estimate properties based on chemical principles.
+        4. Return ONLY valid JSON.
+        """
+        
+        model = genai.GenerativeModel(GEMINI_MODEL)
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.2,
+                response_mime_type="application/json"
+            )
+        )
+        
+        if response.text:
+            text = response.text.strip()
+            if text.startswith("```json"): text = text[7:]
+            if text.startswith("```"): text = text[3:]
+            if text.endswith("```"): text = text[:-3]
+            
+            data = json.loads(text.strip())
+            
+            # Log success
+            duration = time.time() - start_time
+            print(f"[{request_id}] ✓ ANALYSIS COMPLETE in {duration:.2f}s")
+            print(f"[{request_id}] Result: {data.get('name')} ({data.get('formula')})")
+            
+            return data
+            
+        raise HTTPException(status_code=500, detail="Empty response from AI")
+        
+    except Exception as e:
+        duration = time.time() - start_time
+        print(f"[{request_id}] ✗ ANALYSIS FAILED in {duration:.2f}s: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/generate-molecule")
+async def generate_molecule(request: MoleculeGenerationRequest):
+    """Generate 3D molecule structure from query using Gemini"""
+    print(f"🧪 Generating molecule for query: '{request.query}'")
+    prompt = f"""Generate the 3D molecular structure for: {request.query}
+    
+    Return a valid JSON object with this EXACT structure:
+    {{
+      "name": "Molecule Name",
+      "formula": "Chemical Formula",
+      "description": "Short description",
+      "atoms": [
+        {{ "id": "a1", "element": "C", "x": 0.0, "y": 0.0, "z": 0.0, "color": "#909090" }}
+      ],
+      "bonds": [
+        {{ "id": "b1", "from": "a1", "to": "a2", "type": "single" }}
+      ],
+      "molecularWeight": 0.0,
+      "difficulty": "intermediate",
+      "tags": ["tag1", "tag2"]
+    }}
+    
+    IMPORTANT:
+    1. Coordinates (x,y,z) should be in Angstroms, centered at 0,0,0.
+    2. Bond types: single, double, triple, aromatic.
+    3. Element symbols must be standard (C, H, O, N, etc).
+    4. Colors should be standard CPK colors (C: #909090, H: #FFFFFF, O: #FF0D0D, N: #3050F8, etc).
+    5. Ensure the structure is chemically valid.
+    6. Return ONLY valid JSON.
+    """
+    
+    try:
+        model = genai.GenerativeModel(GEMINI_MODEL)
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.types.GenerationConfig(
+                temperature=0.1,
+                response_mime_type="application/json"
+            )
+        )
+        
+        if response.text:
+            text = response.text.strip()
+            if text.startswith("```json"): text = text[7:]
+            if text.startswith("```"): text = text[3:]
+            if text.endswith("```"): text = text[:-3]
+            
+            data = json.loads(text.strip())
+            print(f"✓ Generated: {data.get('name')}")
+            return data
+            
+        raise HTTPException(status_code=500, detail="Empty response from AI")
+        
+    except Exception as e:
+        print(f"Error generating molecule: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/")
 async def root():
     return {

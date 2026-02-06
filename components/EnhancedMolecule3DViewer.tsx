@@ -1,8 +1,8 @@
 'use client'
 
-import { useRef, useEffect, useState, useMemo } from 'react'
+import React, { useRef, useEffect, useState, useMemo } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, PerspectiveCamera } from '@react-three/drei'
+import { OrbitControls, PerspectiveCamera, Outlines } from '@react-three/drei'
 import * as THREE from 'three'
 import { Atom, Bond } from '@/types/molecule'
 import { InstancedMeshManager, PerformanceMonitor } from '@/lib/spatialHash'
@@ -12,6 +12,17 @@ interface InstancedAtomMeshProps {
   onSelect: (atomId: string) => void
   selectedAtomId: string | null
   performanceMonitor: PerformanceMonitor
+}
+
+function SelectedAtomHighlight({ atom }: { atom: Atom | null }) {
+  if (!atom) return null
+  return (
+    <mesh position={[atom.x, atom.y, atom.z]}>
+      <sphereGeometry args={[0.5, 32, 32]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      <Outlines thickness={0.05} color="#ffff00" />
+    </mesh>
+  )
 }
 
 function InstancedAtomMesh({ atoms, onSelect, selectedAtomId, performanceMonitor }: InstancedAtomMeshProps) {
@@ -90,18 +101,18 @@ function OptimizedBondMesh({ bonds, atoms, onSelect, selectedBondId, performance
   }, [performanceMonitor])
 
   const bondMeshes = useMemo(() => {
-    return bonds.map(bond => {
+    return bonds.flatMap(bond => {
       const fromAtom = atoms.find(a => a.id === bond.from)
       const toAtom = atoms.find(a => a.id === bond.to)
       
-      if (!fromAtom || !toAtom) return null
+      if (!fromAtom || !toAtom) return []
       
       const start = new THREE.Vector3(fromAtom.x, fromAtom.y, fromAtom.z)
       const end = new THREE.Vector3(toAtom.x, toAtom.y, toAtom.z)
       const direction = end.clone().sub(start).normalize()
       
-      // Create gap at both ends
-      const gapSize = 0.5
+      // Create gap at both ends - Reduced to 0 for solid connection
+      const gapSize = 0.0
       const adjustedStart = start.clone().add(direction.clone().multiplyScalar(gapSize))
       const adjustedEnd = end.clone().sub(direction.clone().multiplyScalar(gapSize))
       
@@ -135,18 +146,51 @@ function OptimizedBondMesh({ bonds, atoms, onSelect, selectedBondId, performance
       
       const segments = quality === 'low' ? 4 : quality === 'medium' ? 8 : 16
       const radius = getBondThickness()
+      const color = getBondColor()
+      const opacity = getBondOpacity()
       
-      return {
-        bond,
-        mid,
-        quaternion,
-        distance,
-        color: getBondColor(),
-        radius,
-        opacity: getBondOpacity(),
-        segments
+      const meshes = []
+      
+      if (bond.type === 'double') {
+        const offset = 0.2
+        // Robust perpendicular vector calculation
+        let perp = new THREE.Vector3(0, 1, 0).cross(direction)
+        if (perp.lengthSq() < 0.001) {
+           perp = new THREE.Vector3(1, 0, 0).cross(direction)
+        }
+        perp.normalize().multiplyScalar(offset)
+        
+        meshes.push({
+           bond, mid: mid.clone().add(perp), quaternion, distance, color, radius, opacity, segments, keySuffix: '-1'
+        })
+        meshes.push({
+           bond, mid: mid.clone().sub(perp), quaternion, distance, color, radius, opacity, segments, keySuffix: '-2'
+        })
+      } else if (bond.type === 'triple') {
+        const offset = 0.25
+        let perp = new THREE.Vector3(0, 1, 0).cross(direction)
+        if (perp.lengthSq() < 0.001) {
+           perp = new THREE.Vector3(1, 0, 0).cross(direction)
+        }
+        perp.normalize().multiplyScalar(offset)
+        
+        meshes.push({
+           bond, mid: mid.clone().add(perp), quaternion, distance, color, radius, opacity, segments, keySuffix: '-1'
+        })
+        meshes.push({
+           bond, mid: mid, quaternion, distance, color, radius, opacity, segments, keySuffix: '-2'
+        })
+        meshes.push({
+           bond, mid: mid.clone().sub(perp), quaternion, distance, color, radius, opacity, segments, keySuffix: '-3'
+        })
+      } else {
+        meshes.push({
+           bond, mid, quaternion, distance, color, radius, opacity, segments, keySuffix: ''
+        })
       }
-    }).filter(Boolean)
+      
+      return meshes
+    })
   }, [bonds, atoms, selectedBondId, quality])
 
   return (
@@ -154,11 +198,11 @@ function OptimizedBondMesh({ bonds, atoms, onSelect, selectedBondId, performance
       {bondMeshes.map((meshData, index) => {
         if (!meshData) return null
         
-        const { bond, mid, quaternion, distance, color, radius, opacity, segments } = meshData
+        const { bond, mid, quaternion, distance, color, radius, opacity, segments, keySuffix } = meshData
         
         return (
           <mesh
-            key={bond.id}
+            key={`${bond.id}${keySuffix || ''}`}
             position={mid}
             quaternion={quaternion}
             onClick={(e) => { e.stopPropagation(); onSelect(bond.id) }}
@@ -213,6 +257,19 @@ function SceneContent({
     }
   }, [performanceMonitor])
 
+  // Auto-center view when first atom is added
+  useEffect(() => {
+    if (atoms.length === 1 && controlsRef?.current) {
+      const atom = atoms[0]
+      controlsRef.current.target.set(atom.x, atom.y, atom.z)
+      controlsRef.current.update()
+    }
+  }, [atoms, controlsRef])
+
+  const selectedAtom = useMemo(() => 
+    atoms.find(a => a.id === selectedAtomId) || null
+  , [atoms, selectedAtomId])
+
   return (
     <>
       <PerspectiveCamera makeDefault position={[0, 0, 8]} />
@@ -223,6 +280,7 @@ function SceneContent({
       <directionalLight position={[-10, -10, -10]} intensity={0.3} />
 
       <group onClick={onCanvasClick}>
+        <SelectedAtomHighlight atom={selectedAtom} />
         {enablePerformanceOptimizations ? (
           <>
             <OptimizedBondMesh
@@ -252,7 +310,7 @@ function SceneContent({
               const end = new THREE.Vector3(toAtom.x, toAtom.y, toAtom.z)
               const direction = end.clone().sub(start).normalize()
               
-              const gapSize = 0.5
+              const gapSize = 0.0
               const adjustedStart = start.clone().add(direction.clone().multiplyScalar(gapSize))
               const adjustedEnd = end.clone().sub(direction.clone().multiplyScalar(gapSize))
               
@@ -262,6 +320,61 @@ function SceneContent({
               const quaternion = new THREE.Quaternion()
               quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction)
 
+              const getBondColor = () => {
+                 if (bond.id === selectedBondId) return '#ffff00'
+                 if (bond.type === 'double') return '#ff6b6b'
+                 if (bond.type === 'triple') return '#4ecdc4'
+                 if (bond.type === 'ionic') return '#ffa500'
+                 if (bond.type === 'hydrogen') return '#87ceeb'
+                 return '#888888'
+              }
+
+              const color = getBondColor()
+
+              if (bond.type === 'double') {
+                 const offset = 0.2
+                 let perp = new THREE.Vector3(0, 1, 0).cross(direction)
+                 if (perp.lengthSq() < 0.001) perp = new THREE.Vector3(1, 0, 0).cross(direction)
+                 perp.normalize().multiplyScalar(offset)
+                 
+                 return (
+                   <group key={bond.id}>
+                     <mesh position={mid.clone().add(perp)} quaternion={quaternion} onClick={(e) => { e.stopPropagation(); onSelectBond(bond.id) }}>
+                        <cylinderGeometry args={[0.08, 0.08, distance, 16]} />
+                        <meshStandardMaterial color={color} metalness={0.5} roughness={0.5} />
+                     </mesh>
+                     <mesh position={mid.clone().sub(perp)} quaternion={quaternion} onClick={(e) => { e.stopPropagation(); onSelectBond(bond.id) }}>
+                        <cylinderGeometry args={[0.08, 0.08, distance, 16]} />
+                        <meshStandardMaterial color={color} metalness={0.5} roughness={0.5} />
+                     </mesh>
+                   </group>
+                 )
+              }
+              
+              if (bond.type === 'triple') {
+                 const offset = 0.25
+                 let perp = new THREE.Vector3(0, 1, 0).cross(direction)
+                 if (perp.lengthSq() < 0.001) perp = new THREE.Vector3(1, 0, 0).cross(direction)
+                 perp.normalize().multiplyScalar(offset)
+                 
+                 return (
+                   <group key={bond.id}>
+                     <mesh position={mid.clone().add(perp)} quaternion={quaternion} onClick={(e) => { e.stopPropagation(); onSelectBond(bond.id) }}>
+                        <cylinderGeometry args={[0.08, 0.08, distance, 16]} />
+                        <meshStandardMaterial color={color} metalness={0.5} roughness={0.5} />
+                     </mesh>
+                     <mesh position={mid} quaternion={quaternion} onClick={(e) => { e.stopPropagation(); onSelectBond(bond.id) }}>
+                        <cylinderGeometry args={[0.08, 0.08, distance, 16]} />
+                        <meshStandardMaterial color={color} metalness={0.5} roughness={0.5} />
+                     </mesh>
+                     <mesh position={mid.clone().sub(perp)} quaternion={quaternion} onClick={(e) => { e.stopPropagation(); onSelectBond(bond.id) }}>
+                        <cylinderGeometry args={[0.08, 0.08, distance, 16]} />
+                        <meshStandardMaterial color={color} metalness={0.5} roughness={0.5} />
+                     </mesh>
+                   </group>
+                 )
+              }
+
               return (
                 <mesh
                   key={bond.id}
@@ -270,7 +383,7 @@ function SceneContent({
                   onClick={(e) => { e.stopPropagation(); onSelectBond(bond.id) }}
                 >
                   <cylinderGeometry args={[0.08, 0.08, distance, 16]} />
-                  <meshStandardMaterial color="#888888" metalness={0.5} roughness={0.5} />
+                  <meshStandardMaterial color={color} metalness={0.5} roughness={0.5} />
                 </mesh>
               )
             })}

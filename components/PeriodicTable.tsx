@@ -26,6 +26,35 @@ export default function PeriodicTable({ onElementSelect, selectedElement, classN
   const [showCompact, setShowCompact] = useState(false)
   const [hoveredElement, setHoveredElement] = useState<PeriodicElement | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Drag to scroll logic
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const [startX, setStartX] = useState(0)
+  const [scrollLeft, setScrollLeft] = useState(0)
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollContainerRef.current) return
+    setIsDragging(true)
+    setStartX(e.pageX - scrollContainerRef.current.offsetLeft)
+    setScrollLeft(scrollContainerRef.current.scrollLeft)
+  }
+
+  const handleMouseLeave = () => {
+    setIsDragging(false)
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !scrollContainerRef.current) return
+    e.preventDefault()
+    const x = e.pageX - scrollContainerRef.current.offsetLeft
+    const walk = (x - startX) * 2 // Scroll speed multiplier
+    scrollContainerRef.current.scrollLeft = scrollLeft - walk
+  }
   
   const [filters, setFilters] = useState<FilterState>({
     category: [],
@@ -165,11 +194,14 @@ export default function PeriodicTable({ onElementSelect, selectedElement, classN
     })
 
     return (
-      <div className="grid grid-cols-18 gap-1 p-4">
+      <div 
+        className="grid gap-1 p-4 min-w-[800px]"
+        style={{ gridTemplateColumns: 'repeat(18, minmax(0, 1fr))' }}
+      >
         {grid.map((row, rowIndex) =>
           row.map((element, colIndex) => {
             if (!element) {
-              return <div key={`${rowIndex}-${colIndex}`} className="w-12 h-12" />
+              return <div key={`${rowIndex}-${colIndex}`} className="aspect-square" />
             }
 
             const isSelected = selectedElement === element.symbol
@@ -182,26 +214,30 @@ export default function PeriodicTable({ onElementSelect, selectedElement, classN
                 onMouseEnter={() => setHoveredElement(element)}
                 onMouseLeave={() => setHoveredElement(null)}
                 className={`
-                  relative w-12 h-12 rounded-lg border-2 transition-all duration-200
+                  relative aspect-square rounded-sm border transition-all duration-200
+                  flex flex-col items-center justify-between p-0.5
                   ${isSelected 
-                    ? 'border-elixra-bunsen scale-110 shadow-lg shadow-elixra-bunsen/30' 
-                    : 'border-white/20 hover:border-white/40'
+                    ? 'border-elixra-bunsen ring-2 ring-elixra-bunsen/50 z-10' 
+                    : 'border-white/20 hover:border-white/60 hover:z-10'
                   }
                 `}
                 style={{
-                  backgroundColor: `${category.color}20`,
-                  borderColor: isSelected ? '#2E6B6B' : `${category.color}40`
+                  backgroundColor: `${category.color}40`,
+                  borderColor: isSelected ? '#2E6B6B' : `${category.color}60`
                 }}
-                whileHover={{ scale: 1.05 }}
+                whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
               >
-                <div className="flex flex-col items-center justify-center h-full">
-                  <span className="text-xs font-bold text-elixra-charcoal dark:text-white">
-                    {element.symbol}
-                  </span>
-                  <span className="text-[8px] text-elixra-secondary">
+                <div className="w-full flex justify-between items-start leading-none">
+                  <span className="text-[6px] md:text-[8px] font-bold text-white/90">
                     {element.atomicNumber}
                   </span>
+                </div>
+                <div className="font-bold text-white text-xs md:text-sm drop-shadow-sm">
+                  {element.symbol}
+                </div>
+                <div className="text-[5px] md:text-[6px] text-white/90 font-semibold truncate w-full text-center">
+                  {element.name}
                 </div>
                 
                 {/* Tooltip on hover */}
@@ -372,7 +408,7 @@ export default function PeriodicTable({ onElementSelect, selectedElement, classN
             <div className="mt-4 flex justify-between items-center">
               <button
                 onClick={clearFilters}
-                className="text-xs text-elixra-bunsen hover:text-elixra-bunsen-dark transition-colors"
+                className="px-3 py-1.5 text-xs font-medium text-elixra-charcoal dark:text-white hover:text-white bg-elixra-bunsen/10 hover:bg-elixra-bunsen rounded-lg transition-all duration-200 border border-elixra-bunsen/20 hover:border-elixra-bunsen hover:shadow-lg hover:shadow-elixra-bunsen/20"
               >
                 Clear All Filters
               </button>
@@ -452,7 +488,14 @@ export default function PeriodicTable({ onElementSelect, selectedElement, classN
       </div>
 
       {/* Periodic Table or Compact List */}
-      <div className="glass-panel bg-white/40 dark:bg-white/10 backdrop-blur-xl border border-elixra-border-subtle rounded-xl overflow-hidden">
+      <div 
+        ref={scrollContainerRef}
+        onMouseDown={handleMouseDown}
+        onMouseLeave={handleMouseLeave}
+        onMouseUp={handleMouseUp}
+        onMouseMove={handleMouseMove}
+        className={`glass-panel bg-white/40 dark:bg-white/10 backdrop-blur-xl border border-elixra-border-subtle rounded-xl overflow-x-auto ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      >
         {showCompact ? renderCompactList() : renderPeriodicTable()}
       </div>
 

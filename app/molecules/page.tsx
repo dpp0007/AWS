@@ -27,7 +27,7 @@ import { PerspectiveGrid, StaticGrid } from '@/components/GridBackground'
 import { SpatialHash, BondCalculationWorker, PerformanceMonitor } from '@/lib/spatialHash'
 import { PERIODIC_TABLE, PeriodicElement } from '@/lib/periodicTable'
 import { Element } from '@/types/molecule'
-import { validateMolecule, ChemicalValidator, ValidationResult } from '@/lib/chemicalValidation'
+import { validateMolecule, ChemicalValidator, ValidationResult, calculateOptimalBondPosition } from '@/lib/chemicalValidation'
 import { MOLECULAR_TEMPLATES, MolecularTemplate, searchTemplates } from '@/lib/molecularTemplates'
 import { EnhancedAIAnalyzer, EnhancedAnalysis } from '@/lib/enhancedAIAnalysis'
 import { UndoRedoManager, ACTION_TYPES, createActionDescription } from '@/lib/undoRedo'
@@ -47,6 +47,7 @@ const EnhancedMolecule3DViewer = dynamic(() => import('@/components/EnhancedMole
 })
 
 import { Atom, Bond } from '@/types/molecule'
+import { getBackendUrl } from '@/lib/api-config'
 import {
   calculateBonds,
   getMolecularFormula,
@@ -63,6 +64,7 @@ export default function EnhancedMoleculesPage() {
   const [analysis, setAnalysis] = useState<EnhancedAnalysis | null>(null)
   const [validation, setValidation] = useState<ValidationResult | null>(null)
   const [analyzing, setAnalyzing] = useState(false)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [selectedAtomId, setSelectedAtomId] = useState<string | null>(null)
   const [selectedBondId, setSelectedBondId] = useState<string | null>(null)
   const [showBondDialog, setShowBondDialog] = useState(false)
@@ -121,6 +123,14 @@ export default function EnhancedMoleculesPage() {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignore if typing in an input
+      if ((e.target as HTMLElement).tagName === 'INPUT' || (e.target as HTMLElement).tagName === 'TEXTAREA') {
+        return
+      }
+
+      // Hotkeys only work on desktop
+      if (window.innerWidth < 1024) return
+
       if (e.ctrlKey || e.metaKey) {
         switch (e.key) {
           case 'z':
@@ -165,7 +175,19 @@ export default function EnhancedMoleculesPage() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isVoiceListening])
+  }, [isVoiceListening, atoms, bonds]) // Added deps to refresh closure if needed
+
+  // Lock body scroll when modals are open
+  useEffect(() => {
+    if (showPeriodicTable || showTemplates || showAnalysis || showValidation || showBondDialog) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = 'unset'
+    }
+    return () => {
+      document.body.style.overflow = 'unset'
+    }
+  }, [showPeriodicTable, showTemplates, showAnalysis, showValidation, showBondDialog])
 
   const handleDropAtom = (element: Element, position?: { x: number; y: number; z: number }) => {
     setPendingDropElement(element)
@@ -174,8 +196,15 @@ export default function EnhancedMoleculesPage() {
   }
 
   const loadTemplate = (template: MolecularTemplate) => {
+    // Scale template atoms to prevent visual overlapping (increase bond length)
+    const SCALE = 2.0 
     const newState = {
-      atoms: template.atoms.map(atom => ({ ...atom })),
+      atoms: template.atoms.map(atom => ({ 
+        ...atom,
+        x: atom.x * SCALE,
+        y: atom.y * SCALE,
+        z: atom.z * SCALE
+      })),
       bonds: template.bonds.map(bond => ({ ...bond })),
       timestamp: Date.now(),
       action: ACTION_TYPES.LOAD_TEMPLATE,
@@ -199,29 +228,38 @@ export default function EnhancedMoleculesPage() {
   const addAtom = useCallback((element?: Element, position?: { x: number; y: number; z: number } | null, bondsToCreate?: Array<{ atomId: string; bondType: 'single' | 'double' | 'triple' | 'ionic' | 'hydrogen' }>) => {
     if (!element) return
 
+    // If we have existing atoms and bonds are not specified, open the dialog to let user configure bonding
+    if (atoms.length > 0 && !bondsToCreate) {
+      setPendingDropElement(element)
+      setPendingDropPosition(position || null)
+      setShowBondDialog(true)
+      return
+    }
+
     let finalPosition: { x: number; y: number; z: number } | null = null
     
     // Determine the reference atom for positioning
     const referenceAtomId = bondsToCreate && bondsToCreate.length > 0 ? bondsToCreate[0].atomId : null
     
-    // Always find a position that's 3+ units away from ALL atoms
-    let attempts = 0
-    const maxAttempts = 100
-    
-    while (!finalPosition && attempts < maxAttempts) {
-      let candidatePos: { x: number; y: number; z: number }
+    // If this is the first atom and no position specified, place at origin
+    if (atoms.length === 0 && !position && !referenceAtomId) {
+      finalPosition = { x: 0, y: 0, z: 0 }
+    } else {
+      // Always find a position that's 3+ units away from ALL atoms
+      let attempts = 0
+      const maxAttempts = 100
       
-      if (referenceAtomId) {
+      while (!finalPosition && attempts < maxAttempts) {
+        let candidatePos: { x: number; y: number; z: number }
+        
+        if (referenceAtomId) {
         const referenceAtom = atoms.find(a => a.id === referenceAtomId)
         if (!referenceAtom) break
         
-        const angle1 = Math.random() * Math.PI * 2
-        const angle2 = Math.random() * Math.PI * 2
-        candidatePos = {
-          x: referenceAtom.x + 3.5 * Math.cos(angle1) * Math.sin(angle2),
-          y: referenceAtom.y + 3.5 * Math.sin(angle1) * Math.sin(angle2),
-          z: referenceAtom.z + 3.5 * Math.cos(angle2)
-        }
+        // Use optimal positioning logic for symmetry
+        candidatePos = calculateOptimalBondPosition(referenceAtom, atoms, 2.5)
+        finalPosition = candidatePos
+        break // Found optimal position
       } else {
         // Random position in space
         candidatePos = {
@@ -253,6 +291,12 @@ export default function EnhancedMoleculesPage() {
         y: Math.random() * 10 - 5,
         z: Math.random() * 10 - 5
       }
+    }
+  }
+
+    if (!finalPosition) {
+      // This should theoretically not happen due to the logic above, but for type safety:
+       finalPosition = { x: 0, y: 0, z: 0 }
     }
 
     const newAtom: Atom = {
@@ -365,6 +409,16 @@ export default function EnhancedMoleculesPage() {
     )
   }, [])
 
+  // Real-time validation
+  useEffect(() => {
+    if (atoms.length > 0) {
+      const result = validateMolecule(atoms, bonds)
+      setValidation(result)
+    } else {
+      setValidation(null)
+    }
+  }, [atoms, bonds])
+
   const handleAnalyze = async () => {
     if (atoms.length === 0) return
 
@@ -382,8 +436,6 @@ export default function EnhancedMoleculesPage() {
   }
 
   const handleValidate = () => {
-    const validation = validateMolecule(atoms, bonds)
-    setValidation(validation)
     setShowValidation(true)
   }
 
@@ -391,6 +443,8 @@ export default function EnhancedMoleculesPage() {
     const validator = new ChemicalValidator(atoms, bonds)
     const { newAtoms, newBonds } = validator.autoCompleteWithHydrogen()
     
+    if (newAtoms.length === 0) return
+
     const updatedAtoms = [...atoms, ...newAtoms]
     const updatedBonds = [...bonds, ...newBonds]
     
@@ -428,13 +482,129 @@ export default function EnhancedMoleculesPage() {
     setSelectedBondId(null)
   }, [])
 
+  const handleGenerateMolecule = async (query: string) => {
+    setIsGenerating(true)
+    
+    try {
+      const backendUrl = getBackendUrl()
+      const res = await fetch(`${backendUrl}/generate-molecule`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query })
+      })
+      
+      if (!res.ok) throw new Error("Failed to generate structure")
+      
+      const template = await res.json()
+      
+      // Ensure IDs are unique
+      const uniqueSuffix = Date.now()
+      template.atoms = template.atoms.map((a: any) => ({ ...a, id: `${a.id}-${uniqueSuffix}` }))
+      template.bonds = template.bonds.map((b: any) => ({ 
+         ...b, 
+         id: `${b.id}-${uniqueSuffix}`,
+         from: `${b.from}-${uniqueSuffix}`,
+         to: `${b.to}-${uniqueSuffix}`
+      }))
+      
+      loadTemplate(template)
+      
+      if ('speechSynthesis' in window) {
+         const u = new SpeechSynthesisUtterance(`Generated structure for ${template.name}`)
+         window.speechSynthesis.speak(u)
+      }
+      
+    } catch (e) {
+      console.error(e)
+      if ('speechSynthesis' in window) {
+         const u = new SpeechSynthesisUtterance(`Sorry, I couldn't generate structure for ${query}`)
+         window.speechSynthesis.speak(u)
+      }
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   const handleVoiceCommand = (command: any) => {
     switch (command.action) {
+      case 'GENERATE_MOLECULE':
+        if (command.data?.query) {
+           handleGenerateMolecule(command.data.query)
+        }
+        break
       case 'ADD_ELEMENT':
         if (command.data?.element) {
-          const element = PERIODIC_TABLE.find(e => e.symbol === command.data.element)
+          const element = PERIODIC_TABLE.find(e => 
+            e.symbol.toLowerCase() === command.data.element.toLowerCase() || 
+            e.name.toLowerCase() === command.data.element.toLowerCase()
+          )
           if (element) {
             addAtom(element)
+          }
+        }
+        break
+      case 'ADD_COMPLEX':
+        {
+          const { subjectElement, count, bondType, targetElement } = command.data
+          const targetEl = PERIODIC_TABLE.find(e => e.symbol === targetElement)
+          const subjectEl = PERIODIC_TABLE.find(e => e.symbol === subjectElement)
+          
+          if (targetEl && subjectEl) {
+            // Create a local copy of state to build the structure
+            const currentAtoms = [...atoms]
+            const currentBonds = [...bonds]
+            
+            // 1. Create Target Atom
+            // Find a good spot - if empty, 0,0,0. If not, random/offset.
+            let targetPos = { x: 0, y: 0, z: 0 }
+            if (currentAtoms.length > 0) {
+               targetPos = { x: Math.random()*4-2, y: Math.random()*4-2, z: Math.random()*4-2 }
+            }
+            
+            const targetId = `atom-${Date.now()}-target`
+            const targetAtom: Atom = {
+              id: targetId,
+              element: targetEl.symbol,
+              x: targetPos.x,
+              y: targetPos.y,
+              z: targetPos.z,
+              color: targetEl.color
+            }
+            currentAtoms.push(targetAtom)
+            
+            // 2. Add Subjects bonded to Target
+            for(let i=0; i<count; i++) {
+               // Use existing logic to find spot relative to target
+               const pos = calculateOptimalBondPosition(targetAtom, currentAtoms, 2.0)
+               
+               const subjectId = `atom-${Date.now()}-sub-${i}`
+               const subjectAtom: Atom = {
+                 id: subjectId,
+                 element: subjectEl.symbol,
+                 x: pos.x,
+                 y: pos.y,
+                 z: pos.z,
+                 color: subjectEl.color
+               }
+               currentAtoms.push(subjectAtom)
+               
+               currentBonds.push({
+                 id: `bond-${Date.now()}-sub-${i}`,
+                 from: targetId,
+                 to: subjectId,
+                 type: bondType
+               })
+            }
+            
+            setAtoms(currentAtoms)
+            setBonds(currentBonds)
+            
+            undoRedoManagerRef.current.recordState(
+              currentAtoms,
+              currentBonds,
+              ACTION_TYPES.ADD_ATOM,
+              `Added ${count} ${subjectEl.name} to ${targetEl.name}`
+            )
           }
         }
         break
@@ -501,7 +671,7 @@ export default function EnhancedMoleculesPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center p-4 pt-32"
             onClick={() => setShowPeriodicTable(false)}
           >
             <motion.div
@@ -512,7 +682,7 @@ export default function EnhancedMoleculesPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-2xl font-bold text-elixra-charcoal dark:text-white">
+                <h2 className="text-lg md:text-2xl font-bold text-elixra-charcoal dark:text-white whitespace-nowrap">
                   Periodic Table of Elements
                 </h2>
                 <button
@@ -542,7 +712,7 @@ export default function EnhancedMoleculesPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-start justify-center p-4 pt-24"
             onClick={() => setShowTemplates(false)}
           >
             <motion.div
@@ -576,7 +746,7 @@ export default function EnhancedMoleculesPage() {
                   />
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto [&::-webkit-scrollbar]:hidden">
                   {searchTemplates(templateSearch).map(template => (
                     <motion.button
                       key={template.id}
@@ -584,48 +754,47 @@ export default function EnhancedMoleculesPage() {
                         loadTemplate(template)
                         setShowTemplates(false)
                       }}
-                      className="glass-panel bg-white/40 dark:bg-white/10 backdrop-blur-xl border border-elixra-border-subtle rounded-xl p-4 hover:border-elixra-bunsen/30 transition-all text-left group"
-                      whileHover={{ scale: 1.02 }}
+                      className="glass-panel bg-white/90 dark:bg-elixra-charcoal/90 backdrop-blur-xl border border-elixra-border-subtle rounded-xl p-4 transition-all text-left shadow-lg"
                       whileTap={{ scale: 0.98 }}
                     >
                       <div className="flex items-center justify-between mb-3">
-                        <div className="font-semibold text-elixra-charcoal dark:text-white group-hover:text-elixra-bunsen transition-colors">
+                        <div className="font-bold text-elixra-charcoal dark:text-white text-lg">
                           {template.name}
                         </div>
                         {template.hotkey && (
-                          <div className="px-2 py-1 bg-elixra-bunsen/20 text-elixra-bunsen text-xs rounded font-mono">
+                          <div className="px-2 py-1 bg-elixra-bunsen text-white text-xs rounded font-mono font-bold shadow-sm">
                             {template.hotkey.toUpperCase()}
                           </div>
                         )}
                       </div>
                       
-                      <div className="text-sm text-elixra-secondary mb-2">
+                      <div className="text-sm text-elixra-charcoal/90 dark:text-white/90 mb-2 font-medium">
                         {template.formula} • {template.molecularWeight.toFixed(1)} g/mol
                       </div>
                       
-                      <div className="text-xs text-elixra-secondary/70 mb-3 line-clamp-2">
+                      <div className="text-xs text-elixra-charcoal/70 dark:text-white/70 mb-3 line-clamp-2">
                         {template.description}
                       </div>
                       
                       <div className="flex flex-wrap gap-1">
                         {template.tags.slice(0, 3).map(tag => (
-                          <span key={tag} className="px-2 py-1 bg-elixra-bunsen/10 text-elixra-bunsen text-xs rounded">
+                          <span key={tag} className="px-2 py-1 bg-elixra-bunsen text-white text-xs rounded font-bold shadow-sm">
                             {tag}
                           </span>
                         ))}
                         {template.tags.length > 3 && (
-                          <span className="px-2 py-1 bg-elixra-bunsen/10 text-elixra-bunsen text-xs rounded">
+                          <span className="px-2 py-1 bg-elixra-bunsen text-white text-xs rounded font-bold shadow-sm">
                             +{template.tags.length - 3}
                           </span>
                         )}
                       </div>
                       
-                      <div className={`mt-3 px-2 py-1 text-xs rounded font-medium ${
+                      <div className={`mt-3 px-2 py-1 text-xs rounded font-bold inline-block shadow-sm text-white ${
                         template.difficulty === 'beginner' 
-                          ? 'bg-elixra-success/20 text-elixra-success' 
+                          ? 'bg-elixra-success' 
                           : template.difficulty === 'intermediate'
-                          ? 'bg-elixra-copper/20 text-elixra-copper'
-                          : 'bg-elixra-error/20 text-elixra-error'
+                          ? 'bg-elixra-copper'
+                          : 'bg-elixra-error'
                       }`}>
                         {template.difficulty.charAt(0).toUpperCase() + template.difficulty.slice(1)}
                       </div>
@@ -633,15 +802,20 @@ export default function EnhancedMoleculesPage() {
                   ))}
                 </div>
                 
-                <div className="glass-panel bg-white/40 dark:bg-white/10 backdrop-blur-xl border border-elixra-border-subtle rounded-xl p-4">
-                  <div className="text-sm font-semibold text-elixra-charcoal dark:text-white mb-2">
-                    Quick Insert Hotkeys
+                <div className="glass-panel bg-white/90 dark:bg-elixra-charcoal/90 backdrop-blur-xl border border-elixra-border-subtle rounded-xl p-4 shadow-lg">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-bold text-elixra-charcoal dark:text-white">
+                      Quick Insert Hotkeys
+                    </div>
+                    <div className="text-[10px] text-elixra-secondary italic hidden lg:block">
+                      * Desktop only
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
                     {MOLECULAR_TEMPLATES.filter(t => t.hotkey).slice(0, 8).map(template => (
-                      <div key={template.id} className="flex items-center justify-between">
-                        <span className="text-elixra-secondary">{template.name}</span>
-                        <kbd className="px-2 py-1 bg-elixra-bunsen/20 text-elixra-bunsen rounded font-mono">
+                      <div key={template.id} className="flex items-center justify-between p-2 rounded-lg bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 transition-colors">
+                        <span className="text-elixra-charcoal dark:text-white font-medium">{template.name}</span>
+                        <kbd className="px-2 py-1 bg-elixra-bunsen text-white rounded font-mono font-bold shadow-sm min-w-[24px] text-center">
                           {template.hotkey?.toUpperCase()}
                         </kbd>
                       </div>
@@ -929,7 +1103,7 @@ export default function EnhancedMoleculesPage() {
                 </h3>
                 <button
                   onClick={() => setShowPeriodicTable(true)}
-                  className="text-xs text-elixra-bunsen hover:text-elixra-bunsen-dark"
+                  className="px-3 py-1.5 text-xs font-medium text-elixra-charcoal dark:text-white hover:text-white bg-elixra-bunsen/10 hover:bg-elixra-bunsen rounded-lg transition-all duration-200 border border-elixra-bunsen/20 hover:border-elixra-bunsen hover:shadow-lg hover:shadow-elixra-bunsen/20"
                 >
                   View All
                 </button>
@@ -956,22 +1130,32 @@ export default function EnhancedMoleculesPage() {
                       setShowBondDialog(true)
                     }}
                     className={`
-                      p-2 rounded-lg border transition-all text-xs relative overflow-hidden
+                      relative aspect-[4/3] rounded-lg border transition-all duration-200
+                      flex flex-col items-center justify-between p-1.5
                       ${selectedElement?.symbol === element.symbol
-                        ? 'border-elixra-bunsen bg-elixra-bunsen/20'
-                        : 'border-white/20 hover:border-white/40'
+                        ? 'border-elixra-bunsen ring-2 ring-elixra-bunsen/50'
+                        : 'border-white/20 hover:border-white/60'
                       }
                       cursor-grab active:cursor-grabbing
                     `}
                     style={{
-                      backgroundColor: `${element.color}20`,
-                      borderColor: selectedElement?.symbol === element.symbol ? '#2E6B6B' : `${element.color}40`
+                      backgroundColor: `${element.color}30`,
+                      borderColor: selectedElement?.symbol === element.symbol ? '#2E6B6B' : `${element.color}50`
                     }}
-                    whileHover={{ scale: 1.05 }}
+                    whileHover={{ scale: 1.05, y: -2 }}
                     whileTap={{ scale: 0.95 }}
                   >
-                    <div className="font-bold">{element.symbol}</div>
-                    <div className="text-[8px] text-elixra-secondary">{element.atomicNumber}</div>
+                    <div className="w-full flex justify-between items-start leading-none">
+                      <span className="text-[10px] font-bold text-white/90">
+                        {element.atomicNumber}
+                      </span>
+                    </div>
+                    <div className="font-bold text-white text-xl drop-shadow-md">
+                      {element.symbol}
+                    </div>
+                    <div className="text-[9px] text-white/90 font-semibold truncate w-full text-center">
+                      {element.name}
+                    </div>
                     
                     {/* Tooltip */}
                     <div className="absolute -top-12 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
@@ -1002,37 +1186,37 @@ export default function EnhancedMoleculesPage() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setShowPeriodicTable(true)}
-                  className="p-3 glass-panel bg-white/80 dark:bg-white/15 rounded-xl border border-elixra-border-subtle hover:border-elixra-bunsen hover:bg-elixra-bunsen/10 transition-all text-xs flex flex-col items-center justify-center gap-2 group"
+                  className="p-4 glass-panel bg-white/80 dark:bg-white/15 rounded-xl border border-elixra-border-subtle hover:border-elixra-bunsen hover:bg-elixra-bunsen/10 transition-all text-sm flex flex-col items-center justify-center gap-3 group min-h-[100px]"
                   title="Periodic Table (Ctrl+E)"
                 >
-                  <div className="text-2xl text-elixra-bunsen group-hover:scale-110 transition-transform">⚛</div>
-                  <div className="font-semibold text-elixra-charcoal dark:text-white">Elements</div>
+                  <div className="text-4xl text-elixra-charcoal dark:text-white group-hover:scale-110 transition-transform drop-shadow-sm">⚛</div>
+                  <div className="font-bold text-elixra-charcoal dark:text-white">Elements</div>
                 </button>
                 <button
                   onClick={() => setShowTemplates(true)}
-                  className="p-3 glass-panel bg-white/80 dark:bg-white/15 rounded-xl border border-elixra-border-subtle hover:border-elixra-bunsen hover:bg-elixra-bunsen/10 transition-all text-xs flex flex-col items-center justify-center gap-2 group"
+                  className="p-4 glass-panel bg-white/80 dark:bg-white/15 rounded-xl border border-elixra-border-subtle hover:border-elixra-bunsen hover:bg-elixra-bunsen/10 transition-all text-sm flex flex-col items-center justify-center gap-3 group min-h-[100px]"
                   title="Templates (Ctrl+T)"
                 >
-                  <div className="text-2xl text-elixra-copper group-hover:scale-110 transition-transform">📋</div>
-                  <div className="font-semibold text-elixra-charcoal dark:text-white">Templates</div>
+                  <div className="text-4xl text-elixra-charcoal dark:text-white group-hover:scale-110 transition-transform drop-shadow-sm">📋</div>
+                  <div className="font-bold text-elixra-charcoal dark:text-white">Templates</div>
                 </button>
                 <button
                   onClick={handleUndo}
                   disabled={!undoRedoManagerRef.current.canUndo()}
-                  className="p-3 glass-panel bg-white/80 dark:bg-white/15 rounded-xl border border-elixra-border-subtle hover:border-elixra-bunsen hover:bg-elixra-bunsen/10 transition-all text-xs flex flex-col items-center justify-center gap-2 group disabled:opacity-50 disabled:hover:scale-100"
+                  className="p-4 glass-panel bg-white/80 dark:bg-white/15 rounded-xl border border-elixra-border-subtle hover:border-elixra-bunsen hover:bg-elixra-bunsen/10 transition-all text-sm flex flex-col items-center justify-center gap-3 group disabled:opacity-50 disabled:hover:scale-100 min-h-[100px]"
                   title="Undo (Ctrl+Z)"
                 >
-                  <Undo2 className="h-6 w-6 text-elixra-secondary group-hover:text-elixra-bunsen transition-colors" />
-                  <div className="font-semibold text-elixra-charcoal dark:text-white">Undo</div>
+                  <Undo2 className="h-8 w-8 text-elixra-secondary group-hover:text-elixra-bunsen transition-colors" />
+                  <div className="font-bold text-elixra-charcoal dark:text-white">Undo</div>
                 </button>
                 <button
                   onClick={handleRedo}
                   disabled={!undoRedoManagerRef.current.canRedo()}
-                  className="p-3 glass-panel bg-white/80 dark:bg-white/15 rounded-xl border border-elixra-border-subtle hover:border-elixra-bunsen hover:bg-elixra-bunsen/10 transition-all text-xs flex flex-col items-center justify-center gap-2 group disabled:opacity-50 disabled:hover:scale-100"
+                  className="p-4 glass-panel bg-white/80 dark:bg-white/15 rounded-xl border border-elixra-border-subtle hover:border-elixra-bunsen hover:bg-elixra-bunsen/10 transition-all text-sm flex flex-col items-center justify-center gap-3 group disabled:opacity-50 disabled:hover:scale-100 min-h-[100px]"
                   title="Redo (Ctrl+Y)"
                 >
-                  <Redo2 className="h-6 w-6 text-elixra-secondary group-hover:text-elixra-bunsen transition-colors" />
-                  <div className="font-semibold text-elixra-charcoal dark:text-white">Redo</div>
+                  <Redo2 className="h-8 w-8 text-elixra-secondary group-hover:text-elixra-bunsen transition-colors" />
+                  <div className="font-bold text-elixra-charcoal dark:text-white">Redo</div>
                 </button>
               </div>
               
@@ -1056,7 +1240,7 @@ export default function EnhancedMoleculesPage() {
                       </button>
                       <button
                         onClick={autoCompleteWithHydrogen}
-                        disabled={atoms.length === 0}
+                        disabled={atoms.length === 0 || !validation?.suggestions.some(s => s.type === 'add-hydrogen')}
                         className="p-2 glass-panel bg-white/60 dark:bg-white/10 rounded-lg border border-elixra-border-subtle hover:border-elixra-bunsen/30 transition-all text-xs disabled:opacity-50"
                         title="Auto-complete"
                       >
@@ -1141,6 +1325,12 @@ export default function EnhancedMoleculesPage() {
 
               {/* 3D Viewer */}
               <div style={{ height: '500px' }} className="mb-6 relative z-10">
+                {isGenerating && (
+                  <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/50 backdrop-blur-sm rounded-2xl">
+                    <div className="w-12 h-12 border-4 border-elixra-bunsen border-t-transparent rounded-full animate-spin mb-4" />
+                    <div className="text-white font-medium">Generating Structure with AI...</div>
+                  </div>
+                )}
                 <MoleculeDropZone onDrop={handleDropAtom}>
                   <EnhancedMolecule3DViewer
                     atoms={atoms}

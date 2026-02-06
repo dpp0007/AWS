@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { Mic, MicOff, Volume2, VolumeX } from 'lucide-react'
+import { Mic, MicOff, Plus, Volume2, VolumeX, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { parseNaturalLanguageCommand } from '@/lib/commandParser'
 
 // Type declarations for Web Speech API
 declare global {
@@ -18,6 +19,7 @@ interface VoiceCommand {
   action: string
   confidence: number
   timestamp: Date
+  data?: any
 }
 
 interface VoiceCommandSystemProps {
@@ -52,7 +54,7 @@ const COMMAND_PATTERNS = [
   {
     patterns: ['build benzene ring', 'make benzene', 'create benzene', 'benzene'],
     action: 'LOAD_TEMPLATE',
-    template: 'benzene'
+    template: 'benzene-ring'
   },
   {
     patterns: ['build water molecule', 'make water', 'create water', 'water'],
@@ -151,9 +153,20 @@ function fuzzyMatch(str1: string, str2: string): number {
 }
 
 // Command recognition function
-function recognizeCommand(transcript: string): { action: string; confidence: number; data?: any } | null {
+function recognizeCommand(transcript: string): { action: string; confidence: number; data?: any; pattern: string } | null {
+  // 1. Try complex natural language parsing
+  const complexCmd = parseNaturalLanguageCommand(transcript)
+  if (complexCmd) {
+     return {
+        action: 'ADD_COMPLEX',
+        confidence: 1.0,
+        data: complexCmd,
+        pattern: transcript
+     }
+  }
+
   let bestMatch = null
-  let bestConfidence = 0.7 // Minimum confidence threshold
+  let bestConfidence = 0.0
   
   for (const pattern of COMMAND_PATTERNS) {
     for (const patternText of pattern.patterns) {
@@ -163,13 +176,69 @@ function recognizeCommand(transcript: string): { action: string; confidence: num
         bestMatch = {
           action: pattern.action,
           confidence,
-          data: { element: pattern.element, template: pattern.template, bondType: pattern.bondType }
+          data: { element: pattern.element, template: pattern.template, bondType: pattern.bondType },
+          pattern: patternText
         }
       }
     }
   }
   
+  // 3. Check for "Add [Element]" generic
+  const addRegex = /^(?:add|place|insert)\s+([a-z]+)(?:\s+atom)?$/i
+  const addMatch = transcript.match(addRegex)
+  if (addMatch) {
+     return {
+        action: 'ADD_ELEMENT',
+        confidence: 0.85,
+        data: { element: addMatch[1] },
+        pattern: transcript
+     }
+  }
+
+  // 4. Fallback: Generic Generation Command
+  // "Build caffeine", "Create aspirin", "Show me Vitamin C"
+  if (bestConfidence < 0.8) { // If pattern match isn't very strong
+     const genRegex = /^(?:build|make|create|show|generate|display)\s+(?:me\s+|structure\s+of\s+|structure\s+for\s+)?(.+)$/i
+     const match = transcript.match(genRegex)
+     if (match) {
+        const query = match[1].trim()
+        // Filter out simple noise like "molecule" if it's at the end
+        const cleanQuery = query.replace(/\s+molecule$/i, '')
+        
+        if (cleanQuery.length > 2) {
+           // Prefer this over a weak pattern match
+           return {
+              action: 'GENERATE_MOLECULE',
+              confidence: 0.9,
+              data: { query: cleanQuery },
+              pattern: transcript
+           }
+        }
+     }
+  }
+  
   return bestMatch
+}
+
+function speak(text: string) {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    window.speechSynthesis.speak(utterance)
+  }
+}
+
+// Logging Helper
+const logVoiceEvent = async (type: string, message: string, level?: number, confidence?: number) => {
+  try {
+    await fetch('/api/voice-log', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, message, timestamp: Date.now(), level, confidence })
+    })
+  } catch (e) {
+    // Silent fail
+  }
 }
 
 export default function VoiceCommandSystem({ 
@@ -178,16 +247,34 @@ export default function VoiceCommandSystem({
   onToggleListening, 
   className 
 }: VoiceCommandSystemProps) {
-  const [transcript, setTranscript] = useState('')
+  const [inputValue, setInputValue] = useState('')
   const [isSupported, setIsSupported] = useState(false)
-  const [audioLevel, setAudioLevel] = useState(0)
-  const [recentCommands, setRecentCommands] = useState<VoiceCommand[]>([])
+  const [placeholderIndex, setPlaceholderIndex] = useState(0)
+  const [hasInteracted, setHasInteracted] = useState(false)
+  
+  const [suggestion, setSuggestion] = useState<{ text: string, type: 'error' | 'suggestion', action?: () => void } | null>(null)
+  const [feedback, setFeedback] = useState<string | null>(null)
   
   const recognitionRef = useRef<typeof window.SpeechRecognition | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
-  const analyserRef = useRef<AnalyserNode | null>(null)
-  const dataArrayRef = useRef<Uint8Array | null>(null)
   
+  const PLACEHOLDERS = [
+    "Build benzene ring",
+    "Add carbon atom",
+    "Analyze this molecule",
+    "Undo last action",
+    "Clear scene"
+  ]
+
+  // Placeholder animation
+  useEffect(() => {
+    if (hasInteracted) return
+    const interval = setInterval(() => {
+      setPlaceholderIndex(prev => (prev + 1) % PLACEHOLDERS.length)
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [hasInteracted])
+
   // Initialize speech recognition
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
@@ -202,46 +289,30 @@ export default function VoiceCommandSystem({
       recognition.onresult = (event: any) => {
         const last = event.results.length - 1
         const transcript = event.results[last][0].transcript
+        const isFinal = event.results[last].isFinal
         const confidence = event.results[last][0].confidence
         
-        setTranscript(transcript)
+        setInputValue(transcript)
+        setHasInteracted(true)
         
-        // Recognize command
-        const command = recognizeCommand(transcript)
-        if (command && command.confidence > 0.8) {
-          const voiceCommand: VoiceCommand = {
-            command: transcript,
-            action: command.action,
-            confidence: command.confidence,
-            timestamp: new Date()
-          }
-          
-          onCommand(voiceCommand)
-          setRecentCommands(prev => [voiceCommand, ...prev.slice(0, 4)])
-          
-          // Provide audio feedback
-          speak(`Executing: ${command.action.replace('_', ' ')}`)
+        logVoiceEvent('TRANSCRIPT', transcript, undefined, confidence)
+        
+        if (isFinal) {
+          handleSubmit(transcript)
         }
       }
       
       recognition.onerror = (event: any) => {
         console.error('Speech recognition error:', event.error)
-        if (event.error === 'no-speech') {
-          speak('I didn\'t hear anything. Please try again.')
-        } else if (event.error === 'audio-capture') {
-          speak('Microphone not available.')
-        }
+        logVoiceEvent('ERROR', event.error)
       }
       
       recognition.onend = () => {
         if (isListening) {
-          // Restart recognition if still supposed to be listening
           setTimeout(() => {
             try {
               recognition.start()
-            } catch (e) {
-              console.error('Failed to restart recognition:', e)
-            }
+            } catch (e) {}
           }, 100)
         }
       }
@@ -251,52 +322,61 @@ export default function VoiceCommandSystem({
     } else {
       setIsSupported(false)
     }
-  }, [])
+  }, [isListening])
 
-  // Audio level monitoring
+  // Audio Level Monitoring
   useEffect(() => {
-    if (isListening) {
-      // Create audio context for monitoring
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-      const analyser = audioContext.createAnalyser()
-      analyser.fftSize = 256
-      
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(stream => {
-          const source = audioContext.createMediaStreamSource(stream)
-          source.connect(analyser)
-          
-          const dataArray = new Uint8Array(analyser.frequencyBinCount)
-          dataArrayRef.current = dataArray
-          analyserRef.current = analyser
-          audioContextRef.current = audioContext
-          
-          // Monitor audio levels
-          const monitorAudio = () => {
-            if (analyser && dataArray) {
-              analyser.getByteFrequencyData(dataArray)
-              const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
-              setAudioLevel(average / 255) // Normalize to 0-1
-            }
-            
-            if (isListening) {
-              requestAnimationFrame(monitorAudio)
-            }
+    if (!isListening) return
+    
+    let analyser: AnalyserNode
+    let microphone: MediaStreamAudioSourceNode
+    let javascriptNode: ScriptProcessorNode
+    let stream: MediaStream
+
+    const initAudio = async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        const AudioContext = window.AudioContext || window.webkitAudioContext
+        const audioContext = new AudioContext()
+        audioContextRef.current = audioContext
+        
+        analyser = audioContext.createAnalyser()
+        microphone = audioContext.createMediaStreamSource(stream)
+        javascriptNode = audioContext.createScriptProcessor(2048, 1, 1)
+
+        analyser.smoothingTimeConstant = 0.8
+        analyser.fftSize = 1024
+
+        microphone.connect(analyser)
+        analyser.connect(javascriptNode)
+        javascriptNode.connect(audioContext.destination)
+
+        javascriptNode.onaudioprocess = () => {
+          const array = new Uint8Array(analyser.frequencyBinCount)
+          analyser.getByteFrequencyData(array)
+          let values = 0
+          for (let i = 0; i < array.length; i++) {
+            values += array[i]
           }
+          const average = values / array.length
           
-          monitorAudio()
-        })
-        .catch(error => {
-          console.error('Microphone access denied:', error)
-          speak('Microphone access denied. Voice commands disabled.')
-        })
-    } else {
-      // Cleanup
-      if (audioContextRef.current) {
-        audioContextRef.current.close()
-        audioContextRef.current = null
+          // Log significant levels occasionally
+          if (average > 10 && Math.random() < 0.05) {
+             logVoiceEvent('AUDIO_LEVEL', 'Active', average / 255)
+          }
+        }
+      } catch (e) {
+        console.error('Audio init failed', e)
       }
-      setAudioLevel(0)
+    }
+
+    initAudio()
+    logVoiceEvent('STATUS', 'Listening Started')
+
+    return () => {
+      if (stream) stream.getTracks().forEach(track => track.stop())
+      if (audioContextRef.current) audioContextRef.current.close()
+      logVoiceEvent('STATUS', 'Listening Stopped')
     }
   }, [isListening])
 
@@ -307,182 +387,170 @@ export default function VoiceCommandSystem({
     if (isListening) {
       try {
         recognitionRef.current.start()
-        speak('Voice commands activated.')
-      } catch (error) {
-        console.error('Failed to start speech recognition:', error)
-      }
+      } catch (error) {}
     } else {
       try {
         recognitionRef.current.stop()
-      } catch (error) {
-        console.error('Failed to stop speech recognition:', error)
-      }
+      } catch (error) {}
     }
   }, [isListening, isSupported])
 
-  // Text-to-speech function
-  const speak = (text: string) => {
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text)
-      utterance.rate = 0.9
-      utterance.pitch = 1.0
-      utterance.volume = 0.7
-      speechSynthesis.speak(utterance)
+  const handleSubmit = async (textOverride?: string) => {
+    const textToProcess = textOverride || inputValue
+    if (!textToProcess.trim()) return
+    
+    setHasInteracted(true)
+    setSuggestion(null)
+    
+    const parts = textToProcess.split(/\s+(?:and|then|after\s+that)\s+/i)
+    let executedCount = 0
+    let lastCommand = null
+    
+    for (const part of parts) {
+      const cleanPart = part.trim()
+      if (!cleanPart) continue
+      
+      const command = recognizeCommand(cleanPart)
+      
+      if (command && command.confidence > 0.6) {
+        const voiceCommand: VoiceCommand = {
+          command: cleanPart,
+          action: command.action,
+          confidence: command.confidence,
+          timestamp: new Date(),
+          data: command.data
+        }
+        onCommand(voiceCommand)
+        executedCount++
+        lastCommand = command
+        
+        // Delay to allow state updates (crucial for "Clear and Add")
+        if (parts.length > 1) {
+            await new Promise(r => setTimeout(r, 800))
+         }
+       } else if (/\b(?:bond|bonding)\b/i.test(cleanPart)) {
+          // Block "bond" keyword if not a valid command
+          setFeedback("Bonding operations must be done via the UI")
+          setTimeout(() => setFeedback(null), 3000)
+       } else if (parts.length === 1) {
+          // Only show error if it's a single command and failed
+          setFeedback(`Unknown command`)
+          setTimeout(() => setFeedback(null), 3000)
+       }
     }
+    
+    if (executedCount > 0 && lastCommand) {
+      const command = lastCommand
+      const successMsg = `Executed: ${command.pattern}`
+      
+      if (textOverride) {
+        let speakText = "Command executed"
+        if (command.action === 'ADD_COMPLEX') {
+           speakText = `Added ${command.data.count} ${command.data.subjectElement} to ${command.data.targetElement}`
+        } else if (command.data?.element) {
+           speakText = `Added ${command.data.element}`
+        }
+        speak(speakText)
+      } else {
+        setFeedback(successMsg)
+        setTimeout(() => setFeedback(null), 3000)
+      }
+    }
+      
+    if (!textOverride) setInputValue('')
   }
 
-  // Audio level visualization
-  const AudioWaveform = () => {
-    const bars = Array.from({ length: 20 }, (_, i) => {
-      const height = Math.min(1, audioLevel * (1 + Math.sin(Date.now() / 200 + i) * 0.3))
-      return (
-        <div
-          key={i}
-          className="w-1 bg-elixra-bunsen transition-all duration-75"
-          style={{
-            height: `${height * 20}px`,
-            opacity: isListening ? 1 : 0.3
-          }}
-        />
-      )
-    })
-    
-    return (
-      <div className="flex items-end justify-center space-x-1 h-8">
-        {bars}
-      </div>
-    )
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value)
+    setHasInteracted(true)
+    setSuggestion(null)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleSubmit()
   }
 
   if (!isSupported) {
     return (
-      <div className={`glass-panel bg-white/40 dark:bg-white/10 backdrop-blur-xl border border-elixra-border-subtle rounded-xl p-4 ${className}`}>
-        <div className="flex items-center space-x-3">
-          <VolumeX className="h-5 w-5 text-elixra-secondary" />
-          <div className="text-sm text-elixra-secondary">
-            Voice commands not supported in this browser
-          </div>
-        </div>
+      <div className={`glass-panel bg-white/40 dark:bg-white/10 backdrop-blur-xl border border-elixra-border-subtle rounded-full p-2 flex items-center justify-center ${className}`}>
+        <VolumeX className="h-5 w-5 text-elixra-secondary mr-2" />
+        <span className="text-xs text-elixra-secondary">Voice not supported</span>
       </div>
     )
   }
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      {/* Voice Control Button */}
-      <motion.button
-        onClick={onToggleListening}
-        className={`
-          relative w-full glass-panel rounded-xl border transition-all duration-300
-          ${isListening 
-            ? 'bg-elixra-bunsen/20 border-elixra-bunsen/40 shadow-lg shadow-elixra-bunsen/20' 
-            : 'bg-white/40 dark:bg-white/10 border-elixra-border-subtle hover:border-elixra-bunsen/30'
-          }
-        `}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-      >
-        <div className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                {isListening ? (
-                  <Mic className="h-6 w-6 text-elixra-bunsen" />
-                ) : (
-                  <MicOff className="h-6 w-6 text-elixra-secondary" />
-                )}
-                {isListening && (
-                  <motion.div
-                    animate={{ scale: [1, 1.2, 1] }}
-                    transition={{ duration: 1, repeat: Infinity }}
-                    className="absolute inset-0 rounded-full bg-elixra-bunsen/20"
-                  />
-                )}
-              </div>
-              <div>
-                <div className="font-semibold text-elixra-charcoal dark:text-white">
-                  {isListening ? 'Listening...' : 'Voice Commands'}
-                </div>
-                <div className="text-xs text-elixra-secondary">
-                  {isListening ? 'Say a command' : 'Click to activate'}
-                </div>
-              </div>
-            </div>
-            
-            {isListening && <AudioWaveform />}
-          </div>
-        </div>
-      </motion.button>
-
-      {/* Current Transcript */}
+    <div className={`relative ${className}`}>
+      {/* Success Feedback Toast */}
       <AnimatePresence>
-        {transcript && isListening && (
+        {feedback && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="glass-panel bg-white/60 dark:bg-white/15 backdrop-blur-xl border border-elixra-border-subtle rounded-xl p-3"
+            exit={{ opacity: 0, y: -20 }}
+            className="fixed top-6 left-1/2 -translate-x-1/2 px-3 py-1.5 bg-elixra-success text-white text-xs font-bold rounded-full shadow-lg whitespace-nowrap pointer-events-none z-[110]"
           >
-            <div className="text-sm text-elixra-secondary mb-1">Heard:</div>
-            <div className="text-elixra-charcoal dark:text-white font-medium">
-              &quot;{transcript}&quot;
-            </div>
+            {feedback}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* Recent Commands */}
-      <AnimatePresence>
-        {recentCommands.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-2"
-          >
-            <div className="text-sm font-semibold text-elixra-charcoal dark:text-white">
-              Recent Commands
-            </div>
-            
-            {recentCommands.map((command, index) => (
+      {/* Main Control Bar */}
+      <div className="glass-panel bg-white/40 dark:bg-white/5 backdrop-blur-2xl border border-elixra-border-subtle rounded-full p-1 flex items-center gap-2 !rounded-full !p-1 shadow-lg hover:shadow-xl transition-shadow duration-300">
+        <motion.button
+          onClick={onToggleListening}
+          className={`p-2 rounded-full transition-all duration-300 flex-shrink-0 ${
+            isListening 
+              ? 'bg-elixra-bunsen text-white shadow-lg shadow-elixra-bunsen/20 animate-pulse' 
+              : 'bg-transparent text-elixra-secondary hover:text-elixra-charcoal dark:hover:text-white'
+          }`}
+          whileTap={{ scale: 0.9 }}
+          title={isListening ? "Stop listening" : "Start voice commands"}
+        >
+          {isListening ? <Mic size={18} /> : <MicOff size={18} />}
+        </motion.button>
+
+        <div className="flex-1 relative h-8 min-w-0">
+          <input
+            type="text"
+            value={inputValue}
+            onChange={handleInputChange}
+            onKeyDown={handleKeyDown}
+            className="w-full h-full bg-transparent border-none outline-none text-sm text-elixra-charcoal dark:text-white placeholder-transparent font-medium px-2"
+          />
+          <AnimatePresence mode="wait">
+            {!inputValue && !hasInteracted && (
               <motion.div
-                key={index}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="glass-panel bg-white/40 dark:bg-white/10 backdrop-blur-xl border border-elixra-border-subtle rounded-lg p-2"
+                key={placeholderIndex}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="absolute inset-0 flex items-center pointer-events-none text-elixra-secondary/50 text-sm italic px-2 truncate"
               >
-                <div className="flex items-center justify-between text-xs">
-                  <div className="text-elixra-charcoal dark:text-white truncate">
-                    {command.command}
-                  </div>
-                  <div className="text-elixra-secondary">
-                    {Math.round(command.confidence * 100)}%
-                  </div>
-                </div>
-                <div className="text-xs text-elixra-secondary/70">
-                  {command.action.replace('_', ' ')}
-                </div>
+                {PLACEHOLDERS[placeholderIndex]}
               </motion.div>
-            ))}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Command Examples */}
-      {!isListening && (
-        <div className="glass-panel bg-white/40 dark:bg-white/10 backdrop-blur-xl border border-elixra-border-subtle rounded-xl p-3">
-          <div className="text-sm font-semibold text-elixra-charcoal dark:text-white mb-2">
-            Try saying:
-          </div>
-          <div className="grid grid-cols-1 gap-1 text-xs">
-            <div className="text-elixra-secondary">• &quot;Add carbon atom&quot;</div>
-            <div className="text-elixra-secondary">• &quot;Build benzene ring&quot;</div>
-            <div className="text-elixra-secondary">• &quot;Analyze this molecule&quot;</div>
-            <div className="text-elixra-secondary">• &quot;Undo last action&quot;</div>
-            <div className="text-elixra-secondary">• &quot;Clear scene&quot;</div>
-          </div>
+            )}
+            {!inputValue && hasInteracted && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="absolute inset-0 flex items-center pointer-events-none text-elixra-secondary/30 text-sm italic px-2 truncate"
+              >
+                Type a command...
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      )}
+
+        <motion.button
+          onClick={() => handleSubmit()}
+          className="p-2 rounded-full bg-elixra-bunsen/10 text-elixra-bunsen hover:bg-elixra-bunsen hover:text-white transition-all flex-shrink-0"
+          whileTap={{ scale: 0.9 }}
+          title="Submit command"
+        >
+          <Plus size={18} />
+        </motion.button>
+      </div>
     </div>
   )
 }

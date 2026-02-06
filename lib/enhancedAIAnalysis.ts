@@ -341,9 +341,77 @@ export class EnhancedAIAnalyzer {
     formula: string, 
     molecularWeight: number
   ): Promise<EnhancedAnalysis> {
-    // This would typically call an AI API, but for now we'll generate based on patterns
     const structure = this.analyzeStructure(atoms, bonds)
     
+    try {
+      // Call the backend API
+      const response = await fetch('http://localhost:8000/analyze-molecule', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          atoms: atoms.map(a => ({
+            id: a.id,
+            element: a.element,
+            x: a.x,
+            y: a.y,
+            z: a.z
+          })),
+          bonds: bonds.map(b => ({
+            id: b.id,
+            from: b.from,
+            to: b.to,
+            type: b.type
+          }))
+        })
+      });
+
+      if (response.ok) {
+        const apiData = await response.json();
+        
+        return {
+          success: true,
+          commonName: apiData.name || this.generateCommonName(formula, structure),
+          iupacName: apiData.name || this.generateIUPACName(formula, structure),
+          formula: apiData.formula || formula,
+          molecularWeight: apiData.molecularWeight || molecularWeight,
+          properties: {
+            physicalState: (apiData.properties?.state?.toLowerCase().includes('solid') ? 'solid' : 
+                           apiData.properties?.state?.toLowerCase().includes('gas') ? 'gas' : 'liquid'),
+            meltingPoint: parseFloat(apiData.properties?.meltingPoint) || undefined,
+            boilingPoint: parseFloat(apiData.properties?.boilingPoint) || undefined,
+            solubility: apiData.properties?.solubility?.toLowerCase().includes('insoluble') ? 'insoluble' : 'soluble',
+            solubilityDetails: apiData.properties?.solubility || 'Depends on functional groups',
+            phBehavior: 'neutral', // Default if not provided
+            polarity: apiData.properties?.polarity?.toLowerCase().includes('non') ? 'nonpolar' : 'polar',
+            color: 'colorless',
+            odor: 'characteristic'
+          },
+          structure: {
+            ...structure,
+            functionalGroups: apiData.functionalGroups || structure.functionalGroups
+          },
+          applications: {
+            industrial: apiData.uses || [],
+            biological: [],
+            everyday: [],
+            historical: []
+          },
+          safety: {
+            toxicity: apiData.safety?.toxicity?.toLowerCase().includes('high') ? 'high-toxicity' : 'low-toxicity',
+            handling: [apiData.safety?.handling || 'Standard precautions'],
+            environmental: [],
+            regulatory: []
+          },
+          educational: this.generateEducationalContent(formula, atoms, bonds)
+        };
+      }
+    } catch (error) {
+      console.error("Failed to fetch analysis from API, falling back to local logic:", error);
+    }
+
+    // Fallback to local logic if API fails
     return {
       success: true,
       commonName: this.generateCommonName(formula, structure),
