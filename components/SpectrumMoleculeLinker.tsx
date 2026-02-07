@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { Peak, SpectroscopyType } from '@/types/spectroscopy'
 import { Link2, AlertCircle } from 'lucide-react'
+import OrbitalDiagram from './OrbitalDiagram'
 
 interface SpectrumMoleculeLinkerProps {
   selectedPeak: Peak | null
@@ -38,8 +39,8 @@ export default function SpectrumMoleculeLinker({
 
   if (!selectedPeak || !mapping) {
     return (
-      <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border border-white/20 rounded-2xl p-6">
-        <div className="flex items-center gap-2 text-gray-400">
+      <div className="bg-gradient-to-br from-white/90 to-white/70 dark:from-white/10 dark:to-white/5 backdrop-blur-2xl border border-elixra-border dark:border-white/20 rounded-2xl p-6 shadow-sm">
+        <div className="flex items-center gap-2 text-elixra-secondary dark:text-gray-400">
           <Link2 className="h-5 w-5" />
           <span className="text-sm">Select a peak to see molecular feature mapping</span>
         </div>
@@ -48,22 +49,22 @@ export default function SpectrumMoleculeLinker({
   }
 
   return (
-    <div className="bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-2xl border border-white/20 rounded-2xl p-6">
+    <div className="bg-gradient-to-br from-white/90 to-white/70 dark:from-white/10 dark:to-white/5 backdrop-blur-2xl border border-elixra-border dark:border-white/20 rounded-2xl p-6 shadow-sm">
       {/* Header */}
       <div className="flex items-center gap-2 mb-4">
-        <Link2 className="h-5 w-5 text-blue-400" />
-        <h3 className="text-lg font-bold text-white">Molecular Feature</h3>
+        <Link2 className="h-5 w-5 text-blue-500 dark:text-blue-400" />
+        <h3 className="text-lg font-bold text-elixra-charcoal dark:text-white">Molecular Feature</h3>
       </div>
 
       {/* Mapping Info */}
       <div className="space-y-4">
         {/* Peak Label */}
         <div>
-          <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">
+          <div className="text-xs text-elixra-secondary dark:text-gray-400 uppercase tracking-wide mb-2">
             Spectrum Peak
           </div>
-          <div className="px-4 py-3 bg-blue-500/20 border border-blue-400/30 rounded-lg">
-            <div className="text-sm font-semibold text-blue-100">
+          <div className="px-4 py-3 bg-blue-500/10 dark:bg-blue-500/20 border border-blue-400/30 rounded-lg">
+            <div className="text-sm font-semibold text-blue-800 dark:text-blue-100">
               {mapping.peakLabel}
             </div>
           </div>
@@ -71,35 +72,39 @@ export default function SpectrumMoleculeLinker({
 
         {/* Arrow */}
         <div className="flex justify-center">
-          <div className="text-gray-500">↓</div>
+          <div className="text-elixra-secondary dark:text-gray-500">↓</div>
         </div>
 
         {/* Molecular Feature */}
         <div>
-          <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">
+          <div className="text-xs text-elixra-secondary dark:text-gray-400 uppercase tracking-wide mb-2">
             Molecular Feature
           </div>
-          <div className="px-4 py-3 bg-purple-500/20 border border-purple-400/30 rounded-lg">
-            <div className="text-sm font-semibold text-purple-100">
+          <div className="px-4 py-3 bg-purple-500/10 dark:bg-purple-500/20 border border-purple-400/30 rounded-lg mb-3">
+            <div className="text-sm font-semibold text-purple-800 dark:text-purple-100">
               {mapping.molecularFeature}
             </div>
           </div>
+          
+          {spectroscopyType === 'uv-vis' && mapping.peakLabel && (
+             <OrbitalDiagram transitionType={mapping.peakLabel} />
+          )}
         </div>
 
         {/* Description */}
         <div>
-          <div className="text-xs text-gray-400 uppercase tracking-wide mb-2">
+          <div className="text-xs text-elixra-secondary dark:text-gray-400 uppercase tracking-wide mb-2">
             Why This Connection
           </div>
-          <p className="text-sm text-gray-300 leading-relaxed">
+          <p className="text-sm text-elixra-charcoal dark:text-gray-300 leading-relaxed">
             {mapping.description}
           </p>
         </div>
 
         {/* Educational Note */}
         <div className="bg-yellow-500/10 border border-yellow-400/30 rounded-lg p-3 flex gap-3">
-          <AlertCircle className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
-          <div className="text-xs text-yellow-200">
+          <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+          <div className="text-xs text-yellow-800 dark:text-yellow-200">
             This mapping is educational and approximate. Real spectroscopy involves complex quantum mechanics.
           </div>
         </div>

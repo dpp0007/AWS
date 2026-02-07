@@ -2,7 +2,9 @@
 
 import { SessionProvider } from 'next-auth/react'
 import { AuthProvider } from '@/contexts/AuthContext'
+import { CollabProvider } from '@/app/context/CollabContext'
 import UsernameSetupModal from '@/components/UsernameSetupModal'
+import CursorOverlay from '@/components/CursorOverlay'
 
 export default function Providers({ 
   children 
@@ -12,8 +14,11 @@ export default function Providers({
   return (
     <SessionProvider>
       <AuthProvider>
-        {children}
-        <UsernameSetupModal />
+        <CollabProvider>
+          {children}
+          <CursorOverlay />
+          <UsernameSetupModal />
+        </CollabProvider>
       </AuthProvider>
     </SessionProvider>
   )

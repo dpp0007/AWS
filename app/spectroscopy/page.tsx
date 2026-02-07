@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Activity, Waves, Atom as AtomIcon, Plus } from 'lucide-react'
+import { useState, useCallback } from 'react'
+import { Activity, Waves, Atom as AtomIcon, Plus, AlertCircle, Loader2 } from 'lucide-react'
 import ModernNavbar from '@/components/ModernNavbar'
 import SpectrumGraph from '@/components/SpectrumGraph'
 import SpectrumExplanation from '@/components/SpectrumExplanation'
@@ -11,6 +11,7 @@ import { Peak, Sample, SpectroscopyType } from '@/types/spectroscopy'
 import { getAllSamples } from '@/lib/spectrumData'
 import { formatSpectrumForDisplay } from '@/lib/spectrumHandlers'
 import { PerspectiveGrid, StaticGrid } from '@/components/GridBackground'
+import Toast, { ToastMessage } from '@/components/Toast'
 
 const SPECTROSCOPY_TYPES = [
   {
@@ -59,135 +60,172 @@ export default function SpectroscopyPage() {
   const [customName, setCustomName] = useState('')
   const [customFormula, setCustomFormula] = useState('')
   const [customSamples, setCustomSamples] = useState<Sample[]>([])
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
+  
+  // Comparison State
+  const [comparisonSpectrum, setComparisonSpectrum] = useState<any | null>(null)
+  const [comparisonMode, setComparisonMode] = useState<'side-by-side' | 'overlay'>('side-by-side')
 
   const selectedSample = useCustom 
     ? customSamples.find(s => s.id === selectedSampleId)
     : getSample(selectedSampleId)
   
-  const spectrum = selectedSample ? getSpectrum(selectedSample.id, selectedType) : null
+  const spectrum = selectedSample ? (useCustom ? selectedSample.spectra[selectedType] : getSpectrum(selectedSample.id, selectedType)) : null
   const formattedSpectrum = spectrum ? formatSpectrumForDisplay(spectrum) : null
   const spectType = SPECTROSCOPY_TYPES.find((t) => t.id === selectedType)!
 
-  const handleAddCustom = () => {
-    if (!customName || !customFormula) return
+  const addToast = useCallback((type: 'success' | 'warning' | 'error' | 'info', title: string, message: string, duration = 5000) => {
+    const id = Math.random().toString(36).substr(2, 9)
+    setToasts(prev => [...prev, { id, type, title, message, duration }])
+  }, [])
 
-    const newSample: Sample = {
-      id: `custom-${Date.now()}`,
+  const removeToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }, [])
+
+  const handleAddCustom = async () => {
+    if (!customName || !customFormula) return
+    
+    setIsGenerating(true)
+    const tempId = `custom-generating-${Date.now()}`
+    
+    // Create a temporary placeholder
+    const placeholderSample: Sample = {
+      id: tempId,
       name: customName,
       formula: customFormula,
       spectra: {
-        'uv-vis': {
-          type: 'uv-vis',
-          sampleName: customName,
-          xMin: 200,
-          xMax: 800,
-          yMin: 0,
-          yMax: 2.5,
-          xLabel: 'Wavelength (nm)',
-          yLabel: 'Absorbance',
-          peaks: [
-            {
-              id: `${customName}-uv-1`,
-              x: 250 + Math.random() * 100,
-              y: 0.5 + Math.random() * 1.5,
-              label: 'λmax',
-              interpretation: `Absorption peak for ${customName}. Electronic transition in the molecule.`,
-              molecularFeature: 'Chromophore',
-              transitionType: Math.random() > 0.5 ? 'π→π*' : 'n→π*',
-            },
-          ],
-        },
-        'ir': {
-          type: 'ir',
-          sampleName: customName,
-          xMin: 400,
-          xMax: 4000,
-          yMin: 0,
-          yMax: 100,
-          xLabel: 'Wavenumber (cm⁻¹)',
-          yLabel: 'Transmittance (%)',
-          xInverted: true,
-          peaks: [
-            {
-              id: `${customName}-ir-1`,
-              x: 2900 + Math.random() * 200,
-              y: 40 + Math.random() * 30,
-              label: 'C-H stretch',
-              interpretation: 'Alkyl C-H stretching vibration',
-              molecularFeature: 'C-H bonds',
-              functionalGroup: 'Alkyl',
-            },
-            {
-              id: `${customName}-ir-2`,
-              x: 1700 + Math.random() * 100,
-              y: 10 + Math.random() * 20,
-              label: 'C=O stretch',
-              interpretation: 'Carbonyl stretching vibration',
-              molecularFeature: 'C=O bond',
-              functionalGroup: 'Carbonyl',
-            },
-          ],
-        },
-        'nmr': {
-          type: 'nmr',
-          sampleName: customName,
-          xMin: 0,
-          xMax: 10,
-          yMin: 0,
-          yMax: 100,
-          xLabel: 'Chemical Shift (ppm)',
-          yLabel: 'Intensity',
-          peaks: [
-            {
-              id: `${customName}-nmr-1`,
-              x: 1 + Math.random() * 3,
-              y: 80 + Math.random() * 20,
-              label: 'Alkyl protons',
-              interpretation: 'Protons in alkyl groups',
-              molecularFeature: 'Alkyl group',
-              multiplicity: 'singlet',
-              integration: 3,
-            },
-            {
-              id: `${customName}-nmr-2`,
-              x: 3 + Math.random() * 2,
-              y: 60 + Math.random() * 20,
-              label: 'Protons near heteroatom',
-              interpretation: 'Protons deshielded by heteroatom',
-              molecularFeature: 'Heteroatom group',
-              multiplicity: 'doublet',
-              integration: 2,
-            },
-          ],
-        },
-      },
+        'uv-vis': { type: 'uv-vis', sampleName: customName, xMin: 200, xMax: 800, yMin: 0, yMax: 2.5, xLabel: 'Wavelength (nm)', yLabel: 'Absorbance', peaks: [] },
+        'ir': { type: 'ir', sampleName: customName, xMin: 400, xMax: 4000, yMin: 0, yMax: 100, xLabel: 'Wavenumber (cm⁻¹)', yLabel: 'Transmittance (%)', xInverted: true, peaks: [] },
+        'nmr': { type: 'nmr', sampleName: customName, xMin: 0, xMax: 10, yMin: 0, yMax: 100, xLabel: 'Chemical Shift (ppm)', yLabel: 'Intensity', peaks: [] }
+      }
     }
-
-    setCustomSamples([...customSamples, newSample])
-    setSelectedSampleId(newSample.id)
+    
+    // Optimistically add to UI
+    setCustomSamples(prev => [...prev, placeholderSample])
+    setSelectedSampleId(tempId)
     setUseCustom(true)
-    setCustomName('')
-    setCustomFormula('')
+    
+    try {
+      const response = await fetch('/api/spectroscopy/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          compound: customName,
+          formula: customFormula,
+          techniques: ["uv-vis", "ir", "nmr"]
+        })
+      })
+      
+      const result = await response.json()
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate data')
+      }
+      
+      const data = result.data
+
+      // Transform API data to frontend format
+      const newSample: Sample = {
+        id: `custom-${Date.now()}`,
+        name: data.compound,
+        formula: data.formula,
+        spectra: {
+          'uv-vis': {
+            type: 'uv-vis',
+            sampleName: data.compound,
+            xMin: 200, xMax: 800, yMin: 0, yMax: 2.5,
+            xLabel: 'Wavelength (nm)', yLabel: 'Absorbance',
+            peaks: (data.uvVis?.peaks || []).map((p: any) => ({
+              id: `uv-${Math.random().toString(36).substr(2, 9)}`,
+              x: Number(p.wavelength),
+              y: Number(p.absorbance || (p.intensity === 'strong' ? 2.0 : 1.0)),
+              label: p.label || '',
+              interpretation: p.assignment || '',
+              transitionType: p.label
+            }))
+          },
+          'ir': {
+            type: 'ir',
+            sampleName: data.compound,
+            xMin: 400, xMax: 4000, yMin: 0, yMax: 100, xLabel: 'Wavenumber (cm⁻¹)', yLabel: 'Transmittance (%)',
+            xInverted: true,
+            peaks: (data.ir?.peaks || []).map((p: any) => ({
+              id: `ir-${Math.random().toString(36).substr(2, 9)}`,
+              x: Number(p.wavenumber),
+              y: Number(p.transmittance || (p.intensity === 'strong' ? 10 : p.intensity === 'medium' ? 40 : 70)),
+              label: p.label || '',
+              interpretation: p.assignment || '',
+              functionalGroup: p.label
+            }))
+          },
+          'nmr': {
+            type: 'nmr',
+            sampleName: data.compound,
+            xMin: 0, xMax: 14, yMin: 0, yMax: 100, xLabel: 'Chemical Shift (ppm)', yLabel: 'Intensity',
+            peaks: (data.nmr?.peaks || []).map((p: any) => ({
+              id: `nmr-${Math.random().toString(36).substr(2, 9)}`,
+              x: Number(p.shift),
+              y: Number(p.intensity || 80),
+              label: p.label || '',
+              interpretation: p.assignment || '',
+              integration: p.integration,
+              multiplicity: p.splitting
+            }))
+          }
+        }
+      }
+      
+      // Replace placeholder with real data
+      // IMPORTANT: Update state in one go to avoid race conditions
+      setCustomSamples(prev => {
+        const filtered = prev.filter(s => s.id !== tempId)
+        return [...filtered, newSample]
+      })
+      setSelectedSampleId(newSample.id)
+      addToast('success', 'Analysis Complete', `Successfully generated spectra for ${data.compound}`)
+      
+    } catch (error) {
+      console.error('Spectroscopy generation failed:', error)
+      // Remove placeholder on error
+      setCustomSamples(prev => prev.filter(s => s.id !== tempId))
+      addToast('error', 'Analysis Failed', error instanceof Error ? error.message : 'Could not generate spectroscopy data. Please try again.')
+    } finally {
+      setIsGenerating(false)
+      setCustomName('')
+      setCustomFormula('')
+    }
   }
 
   return (
     <div className="min-h-screen bg-elixra-cream dark:bg-elixra-charcoal relative overflow-hidden transition-colors duration-300">
       <PerspectiveGrid />
+      <div className="grain-overlay" />
 
       <ModernNavbar />
+
+      {/* Toast Container */}
+      <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+        <div className="pointer-events-auto flex flex-col gap-2">
+          {toasts.map(toast => (
+            <Toast key={toast.id} toast={toast} onDismiss={removeToast} />
+          ))}
+        </div>
+      </div>
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-elixra-charcoal dark:text-white mb-2">{spectType.name}</h1>
+          <h1 className="text-4xl font-bold text-elixra-charcoal dark:text-white mb-2 tracking-tight">{spectType.name}</h1>
           <p className="text-elixra-secondary text-lg">{spectType.description}</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar */}
+          {/* Left Sidebar */}
           <div className="lg:col-span-1 space-y-6">
             {/* Spectroscopy Type */}
-            <div className="glass-panel bg-white/40 dark:bg-white/5 backdrop-blur-2xl border border-elixra-border-subtle rounded-2xl p-6 relative overflow-hidden group">
+            <div className="glass-panel rounded-2xl p-6 relative overflow-hidden group">
                <StaticGrid className="opacity-30" />
                <div className="relative z-10">
                 <h2 className="text-lg font-bold text-elixra-charcoal dark:text-white mb-4">Analysis Type</h2>
@@ -201,15 +239,15 @@ export default function SpectroscopyPage() {
                             setSelectedType(type.id)
                             setSelectedPeak(null)
                         }}
-                        className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-300 ${
+                        className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-300 group/btn ${
                             selectedType === type.id
                             ? 'border-elixra-bunsen bg-elixra-bunsen/10 shadow-lg shadow-elixra-bunsen/20'
                             : 'border-elixra-border-subtle bg-white/50 dark:bg-white/5 hover:border-elixra-bunsen/30 hover:bg-white/80 dark:hover:bg-white/10'
                         }`}
                         >
                         <div className="flex items-center gap-3">
-                            <div className={`p-3 rounded-xl ${
-                                selectedType === type.id ? 'bg-elixra-bunsen text-white' : 'bg-elixra-charcoal/10 dark:bg-white/10 text-elixra-secondary'
+                            <div className={`p-3 rounded-xl transition-colors ${
+                                selectedType === type.id ? 'bg-elixra-bunsen text-white' : 'bg-elixra-charcoal/10 dark:bg-white/10 text-elixra-secondary group-hover/btn:text-elixra-bunsen'
                             }`}>
                             <Icon className="h-5 w-5" />
                             </div>
@@ -230,27 +268,26 @@ export default function SpectroscopyPage() {
             </div>
 
             {/* Sample Selection */}
-            <div className="glass-panel bg-white/40 dark:bg-white/5 backdrop-blur-2xl border border-elixra-border-subtle rounded-2xl p-6">
+            <div className="glass-panel rounded-2xl p-6">
               <h2 className="text-lg font-bold text-elixra-charcoal dark:text-white mb-4">Sample</h2>
               
-              {/* Toggle between preset and custom */}
-              <div className="flex gap-2 mb-4">
+              <div className="flex gap-2 mb-4 p-1 bg-white/50 dark:bg-white/5 rounded-lg border border-elixra-border-subtle">
                 <button
                   onClick={() => setUseCustom(false)}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  className={`flex-1 px-3 py-2 rounded-md text-sm font-semibold transition-all ${
                     !useCustom
-                      ? 'bg-elixra-bunsen text-white shadow-md'
-                      : 'bg-white/50 dark:bg-white/10 text-elixra-secondary hover:bg-white/80 dark:hover:bg-white/20'
+                      ? 'bg-elixra-bunsen text-white shadow-sm'
+                      : 'text-elixra-secondary hover:text-elixra-charcoal dark:hover:text-white'
                   }`}
                 >
-                  Preset
+                  Preset Library
                 </button>
                 <button
                   onClick={() => setUseCustom(true)}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                  className={`flex-1 px-3 py-2 rounded-md text-sm font-semibold transition-all ${
                     useCustom
-                      ? 'bg-elixra-bunsen text-white shadow-md'
-                      : 'bg-white/50 dark:bg-white/10 text-elixra-secondary hover:bg-white/80 dark:hover:bg-white/20'
+                      ? 'bg-elixra-bunsen text-white shadow-sm'
+                      : 'text-elixra-secondary hover:text-elixra-charcoal dark:hover:text-white'
                   }`}
                 >
                   Custom
@@ -258,8 +295,7 @@ export default function SpectroscopyPage() {
               </div>
 
               {!useCustom ? (
-                // Preset samples
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
+                <div className="space-y-2 max-h-[calc(100vh-500px)] overflow-y-auto pr-2 custom-scrollbar">
                   {allSamples.map((sample) => (
                     <button
                       key={sample.id}
@@ -268,10 +304,10 @@ export default function SpectroscopyPage() {
                         setSelectedPeak(null)
                         setUseCustom(false)
                       }}
-                      className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
+                      className={`w-full text-left p-3 rounded-lg border transition-all ${
                         selectedSampleId === sample.id && !useCustom
-                          ? 'border-elixra-bunsen bg-elixra-bunsen/10'
-                          : 'border-elixra-border-subtle bg-white/50 dark:bg-white/5 hover:border-elixra-bunsen/30 hover:bg-white/80 dark:hover:bg-white/10'
+                          ? 'border-elixra-bunsen bg-elixra-bunsen/10 shadow-sm'
+                          : 'border-transparent hover:bg-white/50 dark:hover:bg-white/5'
                       }`}
                     >
                       <div className={`font-semibold text-sm ${selectedSampleId === sample.id && !useCustom ? 'text-elixra-bunsen-dark dark:text-elixra-bunsen-light' : 'text-elixra-charcoal dark:text-white'}`}>{sample.name}</div>
@@ -280,131 +316,181 @@ export default function SpectroscopyPage() {
                   ))}
                 </div>
               ) : (
-                // Custom sample input and list
-                <div className="space-y-3">
-                  <input
-                    type="text"
-                    placeholder="Compound name"
-                    value={customName}
-                    onChange={(e) => setCustomName(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/50 dark:bg-white/10 border border-elixra-border-subtle rounded-lg text-elixra-charcoal dark:text-elixra-cream placeholder-elixra-secondary text-sm focus:border-elixra-bunsen focus:outline-none"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Formula (e.g., C₆H₆)"
-                    value={customFormula}
-                    onChange={(e) => setCustomFormula(e.target.value)}
-                    className="w-full px-3 py-2 bg-white/50 dark:bg-white/10 border border-elixra-border-subtle rounded-lg text-elixra-charcoal dark:text-white placeholder-elixra-secondary text-sm font-mono focus:border-elixra-bunsen focus:outline-none"
-                  />
-                  <button
-                    onClick={handleAddCustom}
-                    disabled={!customName || !customFormula}
-                    className="w-full btn-primary disabled:opacity-50 text-sm flex items-center justify-center gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Analyze Compound
-                  </button>
+                <div className="space-y-4">
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-semibold text-elixra-secondary uppercase mb-1 block">Compound Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., Acetaminophen"
+                        value={customName}
+                        onChange={(e) => setCustomName(e.target.value)}
+                        className="input-field text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-elixra-secondary uppercase mb-1 block">Chemical Formula</label>
+                      <input
+                        type="text"
+                        placeholder="e.g., C8H9NO2"
+                        value={customFormula}
+                        onChange={(e) => setCustomFormula(e.target.value)}
+                        className="input-field text-sm font-mono"
+                      />
+                    </div>
+                    <button
+                      onClick={handleAddCustom}
+                      disabled={!customName || !customFormula || isGenerating}
+                      className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-2"
+                    >
+                      {isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                      {isGenerating ? 'Analyzing...' : 'Generate Spectra'}
+                    </button>
+                  </div>
 
-                  {/* Custom samples list */}
                   {customSamples.length > 0 && (
-                    <div className="mt-4 space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                      <div className="text-xs text-elixra-secondary uppercase font-semibold">Your Compounds</div>
-                      {customSamples.map((sample) => (
-                        <button
-                          key={sample.id}
-                          onClick={() => {
-                            setSelectedSampleId(sample.id)
-                            setSelectedPeak(null)
-                          }}
-                          className={`w-full text-left p-3 rounded-lg border-2 transition-all ${
-                            selectedSampleId === sample.id && useCustom
-                              ? 'border-elixra-bunsen bg-elixra-bunsen/10'
-                              : 'border-elixra-border-subtle bg-white/50 dark:bg-white/5 hover:border-elixra-bunsen/30 hover:bg-white/80 dark:hover:bg-white/10'
-                          }`}
-                        >
-                          <div className={`font-semibold text-sm ${selectedSampleId === sample.id && useCustom ? 'text-elixra-bunsen-dark dark:text-elixra-bunsen-light' : 'text-elixra-charcoal dark:text-elixra-cream'}`}>{sample.name}</div>
-                          <div className="text-xs text-elixra-secondary font-mono">{sample.formula}</div>
-                        </button>
-                      ))}
+                    <div className="pt-4 border-t border-elixra-border-subtle">
+                      <div className="text-xs text-elixra-secondary uppercase font-semibold mb-2">History</div>
+                      <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                        {customSamples.map((sample) => (
+                          <button
+                            key={sample.id}
+                            onClick={() => {
+                              setSelectedSampleId(sample.id)
+                              setSelectedPeak(null)
+                            }}
+                            className={`w-full text-left p-3 rounded-lg border transition-all ${
+                              selectedSampleId === sample.id && useCustom
+                                ? 'border-elixra-bunsen bg-elixra-bunsen/10 shadow-sm'
+                                : 'border-transparent hover:bg-white/50 dark:hover:bg-white/5'
+                            }`}
+                          >
+                            <div className={`font-semibold text-sm ${selectedSampleId === sample.id && useCustom ? 'text-elixra-bunsen-dark dark:text-elixra-bunsen-light' : 'text-elixra-charcoal dark:text-white'}`}>
+                              {sample.name}
+                              {sample.id.startsWith('custom-generating') && <Loader2 className="h-3 w-3 inline ml-2 animate-spin text-elixra-secondary" />}
+                            </div>
+                            <div className="text-xs text-elixra-secondary font-mono">{sample.formula}</div>
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
-
-                  {/* Show preset samples as reference */}
-                  <div className="mt-4 pt-4 border-t border-elixra-border-subtle">
-                    <div className="text-xs text-elixra-secondary uppercase font-semibold mb-2">Preset Samples</div>
-                    <div className="space-y-2 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
-                      {allSamples.map((sample) => (
-                        <button
-                          key={`preset-${sample.id}`}
-                          onClick={() => {
-                            setSelectedSampleId(sample.id)
-                            setSelectedPeak(null)
-                            setUseCustom(false)
-                          }}
-                          className="w-full text-left p-2 rounded-lg border border-elixra-border-subtle bg-white/50 dark:bg-white/5 hover:border-elixra-bunsen/30 hover:bg-white/80 dark:hover:bg-white/10 transition-all"
-                        >
-                          <div className="font-semibold text-elixra-charcoal dark:text-white text-xs">{sample.name}</div>
-                          <div className="text-xs text-elixra-secondary font-mono">{sample.formula}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
           </div>
 
-          {/* Main Content */}
+          {/* Center Canvas & Right Panel */}
           <div className="lg:col-span-3 space-y-6">
-            {selectedSample && formattedSpectrum ? (
+            {selectedSample ? (
               <>
-                {/* Sample Info */}
-                <div className="glass-panel bg-white/40 dark:bg-white/5 backdrop-blur-2xl border border-elixra-border-subtle rounded-2xl p-6">
-                  <div className="flex items-center gap-4 flex-wrap">
-                    <div className="px-4 py-2 bg-elixra-bunsen/10 border border-elixra-bunsen/20 rounded-lg">
-                      <span className="text-sm text-elixra-secondary">Sample: </span>
-                      <span className="font-bold text-elixra-bunsen-dark dark:text-elixra-bunsen-light">{selectedSample.name}</span>
-                    </div>
-                    <div className="px-4 py-2 bg-elixra-copper/10 border border-elixra-copper/20 rounded-lg">
-                      <span className="text-sm text-elixra-secondary">Formula: </span>
-                      <span className="font-mono font-bold text-elixra-copper">{selectedSample.formula}</span>
+                {/* Sample Info Banner */}
+                <div className="glass-panel rounded-2xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div>
+                      <h2 className="text-2xl font-bold text-elixra-charcoal dark:text-white">{selectedSample.name}</h2>
+                      <div className="font-mono text-elixra-copper font-medium">{selectedSample.formula}</div>
                     </div>
                   </div>
+                  {useCustom && (
+                    <div className="px-3 py-1 rounded-full bg-elixra-bunsen/10 border border-elixra-bunsen/20 text-xs font-semibold text-elixra-bunsen-dark dark:text-elixra-bunsen-light flex items-center gap-1">
+                      <AtomIcon className="h-3 w-3" />
+                      AI Generated
+                    </div>
+                  )}
                 </div>
 
-                {/* Interactive Graph */}
-                <div className="glass-panel bg-white/40 dark:bg-white/5 backdrop-blur-2xl border border-elixra-border-subtle rounded-2xl p-6">
-                  <SpectrumGraph
-                    spectrum={formattedSpectrum}
-                    onPeakSelected={setSelectedPeak}
-                    selectedPeakId={selectedPeak?.id}
-                  />
-                </div>
+                {formattedSpectrum ? (
+                  <>
+                    {/* Interactive Graph Area */}
+                    {comparisonMode === 'side-by-side' && comparisonSpectrum ? (
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                            {/* Primary Graph */}
+                            <div className="glass-panel rounded-2xl p-6 relative overflow-hidden">
+                                <div className="absolute top-4 left-4 z-10 bg-elixra-bunsen/20 px-2 py-1 rounded text-xs font-bold text-elixra-bunsen-dark dark:text-elixra-bunsen-light backdrop-blur-md">
+                                    Primary: {selectedSample?.name}
+                                </div>
+                                <SpectrumGraph
+                                    spectrum={formattedSpectrum}
+                                    onPeakSelected={setSelectedPeak}
+                                    selectedPeakId={selectedPeak?.id}
+                                />
+                            </div>
+                            {/* Comparison Graph */}
+                            <div className="glass-panel rounded-2xl p-6 relative overflow-hidden border-2 border-dashed border-elixra-border dark:border-white/10">
+                                <div className="absolute top-4 left-4 z-10 bg-orange-500/20 px-2 py-1 rounded text-xs font-bold text-orange-700 dark:text-orange-300 backdrop-blur-md">
+                                    Comparison: {comparisonSpectrum.sampleName}
+                                </div>
+                                <SpectrumGraph
+                                    spectrum={comparisonSpectrum}
+                                    // Comparison graph is read-only for now
+                                />
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="glass-panel rounded-2xl p-6 relative overflow-hidden">
+                            {comparisonSpectrum && (
+                                <div className="absolute top-4 left-4 z-10 flex gap-2 pointer-events-none">
+                                    <div className="bg-elixra-bunsen/20 px-2 py-1 rounded text-xs font-bold text-elixra-bunsen-dark dark:text-elixra-bunsen-light backdrop-blur-md">
+                                        Primary: {selectedSample?.name}
+                                    </div>
+                                    <div className="bg-orange-500/20 px-2 py-1 rounded text-xs font-bold text-orange-700 dark:text-orange-300 backdrop-blur-md">
+                                        Comparison: {comparisonSpectrum.sampleName}
+                                    </div>
+                                </div>
+                            )}
+                            <SpectrumGraph
+                                spectrum={formattedSpectrum}
+                                comparisonSpectrum={comparisonSpectrum}
+                                onPeakSelected={setSelectedPeak}
+                                selectedPeakId={selectedPeak?.id}
+                            />
+                        </div>
+                    )}
 
-                {/* Explanation Panel */}
-                <SpectrumExplanation peak={selectedPeak} spectroscopyType={selectedType} />
+                    {/* Lower Panels Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                       {/* Explanation */}
+                       <SpectrumExplanation peak={selectedPeak} spectroscopyType={selectedType} />
+                       
+                       {/* Linker */}
+                       <SpectrumMoleculeLinker
+                        selectedPeak={selectedPeak}
+                        spectroscopyType={selectedType}
+                      />
+                    </div>
 
-                {/* Molecule Linker */}
-                <SpectrumMoleculeLinker
-                  selectedPeak={selectedPeak}
-                  spectroscopyType={selectedType}
-                />
-
-                {/* Comparison */}
-                <SpectrumComparison
-                  currentSpectrum={formattedSpectrum}
-                  currentSample={selectedSample}
-                  allSamples={[...allSamples, ...customSamples]}
-                  spectroscopyType={selectedType}
-                />
+                    {/* Comparison Tool */}
+                    <SpectrumComparison
+                        currentSpectrum={formattedSpectrum}
+                        currentSample={selectedSample}
+                        allSamples={[...allSamples, ...customSamples]}
+                        spectroscopyType={selectedType}
+                        onComparisonChange={setComparisonSpectrum}
+                        onModeChange={setComparisonMode}
+                    />
+                  </>
+                ) : (
+                  <div className="glass-panel rounded-2xl p-12 text-center border-dashed border-2 border-elixra-border-subtle">
+                    <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-elixra-charcoal/5 dark:bg-white/5 mb-4">
+                        <AlertCircle className="h-8 w-8 text-elixra-secondary" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-elixra-charcoal dark:text-white mb-2">No Data Available</h3>
+                    <p className="text-elixra-secondary max-w-md mx-auto">
+                      This sample does not have {spectType.name} data available. Try selecting a different technique or generating a custom analysis.
+                    </p>
+                  </div>
+                )}
               </>
             ) : (
-              <div className="glass-panel bg-white/40 dark:bg-white/5 backdrop-blur-2xl border border-elixra-border-subtle rounded-2xl p-12 text-center">
-                <p className="text-elixra-secondary text-lg">
-                  {!selectedSample
-                    ? 'Select a sample to view its spectrum'
-                    : 'This sample does not have data for the selected spectroscopy type'}
-                </p>
+              <div className="glass-panel rounded-2xl p-12 text-center h-full flex flex-col items-center justify-center">
+                 <div className="animate-float mb-6">
+                    <AtomIcon className="h-24 w-24 text-elixra-bunsen opacity-50" />
+                 </div>
+                 <h2 className="text-2xl font-bold text-elixra-charcoal dark:text-white mb-2">Ready to Analyze</h2>
+                 <p className="text-elixra-secondary max-w-md">
+                    Select a compound from the library or enter a custom formula to generate a spectroscopic analysis.
+                 </p>
               </div>
             )}
           </div>

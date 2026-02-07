@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, forwardRef, useImperativeHandle } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDrop } from 'react-dnd'
 import TestTube from './TestTube'
@@ -9,6 +9,11 @@ import QuantityModal from './QuantityModal'
 import TestTubeSelectionModal from './TestTubeSelectionModal'
 import { Chemical, ChemicalContent, Experiment, ReactionResult } from '@/types/chemistry'
 import { Plus, Trash2, Atom, X } from 'lucide-react'
+
+export interface LabTableRef {
+  addChemicalExternal: (glasswareId: string, chemical: Chemical, amount: number, unit: string) => void
+  clearGlasswareExternal: (glasswareId: string) => void
+}
 
 interface LabTableProps {
   onReaction: (experiment: Experiment) => void
@@ -23,9 +28,10 @@ interface LabTableProps {
   onSelectTube?: (tubeId: string) => void
   onSelectedTubeContentsChange?: (contents: ChemicalContent[]) => void
   onTestTubesChange?: (tubes: Array<{ id: string; contents: ChemicalContent[] }>) => void
+  onChemicalAdded?: (glasswareId: string, chemical: Chemical, amount: number, unit: string) => void
 }
 
-export default function LabTable({
+const LabTable = forwardRef<LabTableRef, LabTableProps>(({ 
   onReaction,
   reactionResult,
   isReacting,
@@ -37,8 +43,9 @@ export default function LabTable({
   selectedTubeId = 'tube-1',
   onSelectTube,
   onSelectedTubeContentsChange,
-  onTestTubesChange
-}: LabTableProps) {
+  onTestTubesChange,
+  onChemicalAdded
+}, ref) => {
   const [testTubes, setTestTubes] = useState<Array<{ id: string; contents: ChemicalContent[] }>>([
     { id: 'tube-1', contents: [] },
     { id: 'tube-2', contents: [] }
@@ -46,6 +53,36 @@ export default function LabTable({
   const [beakers, setBeakers] = useState<Array<{ id: string; contents: ChemicalContent[] }>>([
     { id: 'beaker-1', contents: [] }
   ])
+
+  useImperativeHandle(ref, () => ({
+    addChemicalExternal: (glasswareId: string, chemical: Chemical, amount: number, unit: string) => {
+        const newContent: ChemicalContent = {
+            chemical,
+            amount,
+            unit: unit as 'ml' | 'g' | 'mol' | 'drops'
+        }
+
+        setTestTubes(prev => prev.map(tube =>
+            tube.id === glasswareId
+            ? { ...tube, contents: [...tube.contents, newContent] }
+            : tube
+        ))
+
+        setBeakers(prev => prev.map(beaker =>
+            beaker.id === glasswareId
+            ? { ...beaker, contents: [...beaker.contents, newContent] }
+            : beaker
+        ))
+    },
+    clearGlasswareExternal: (glasswareId: string) => {
+      setTestTubes(prev => prev.map(tube =>
+        tube.id === glasswareId ? { ...tube, contents: [] } : tube
+      ))
+      setBeakers(prev => prev.map(beaker =>
+        beaker.id === glasswareId ? { ...beaker, contents: [] } : beaker
+      ))
+    }
+  }))
   const [quantityModal, setQuantityModal] = useState<{
     chemical: Chemical | null
     glasswareId: string | null
@@ -143,10 +180,15 @@ export default function LabTable({
         : beaker
     ))
 
+    // Notify parent of user action
+    if (onChemicalAdded) {
+      onChemicalAdded(glasswareId, chemical, amount, unit)
+    }
+
     // Reset the modal state after adding the chemical
     setQuantityModal({ chemical: null, glasswareId: null, isOpen: false })
     console.log('Chemical added successfully, modal reset')
-  }, [quantityModal])
+  }, [quantityModal, onChemicalAdded])
 
   const handleModalClose = useCallback(() => {
     console.log('Modal closing')
@@ -279,7 +321,7 @@ export default function LabTable({
   return (
     <div
       ref={drop as any}
-      className={`p-4 h-full overflow-y-auto transition-all duration-300 ${isOver ? 'border-2 border-blue-400 border-dashed rounded-2xl' : ''
+      className={`p-4 transition-all duration-300 w-full h-auto lg:h-full lg:overflow-y-auto ${isOver ? 'border-2 border-blue-400 border-dashed rounded-2xl' : ''
         }`}
       style={{
         scrollbarWidth: 'thin',
@@ -434,4 +476,8 @@ export default function LabTable({
       />
     </div>
   )
-}
+})
+
+LabTable.displayName = 'LabTable'
+
+export default LabTable
