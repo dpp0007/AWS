@@ -103,8 +103,8 @@ d:\Elixra\build-o-thon
 
 ### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-org/elixra.git
-cd elixra/build-o-thon
+git clone https://github.com/dpp0007/build-o-thon.git
+cd build-o-thon
 ```
 
 ### 2. Frontend Setup
@@ -137,6 +137,18 @@ python main.py
 
 ---
 
+## 📜 Scripts
+
+- `npm run dev` — Starts the Next.js development server on port 3000
+- `npm run build` — Generates an optimized production build
+- `npm run start` — Starts the production server (default port 3000)
+- `npm run lint` — Runs ESLint checks
+
+Optional:
+- `npx vitest` — Runs tests if/when test suites are added (see components/__tests__)
+
+---
+
 ## 🔧 Configuration
 
 Create a `.env` file in the root directory:
@@ -147,6 +159,27 @@ Create a `.env` file in the root directory:
 | `MONGODB_URI` | Connection string for MongoDB | ✅ |
 | `NEXTAUTH_SECRET` | Secret key for session encryption | ✅ |
 | `NEXTAUTH_URL` | Base URL (e.g., http://localhost:3000) | ✅ |
+
+---
+
+## 🧪 Testing & Linting
+
+- Lint: `npm run lint`
+- Unit tests: `npx vitest` (Vitest is installed; suites can be added in components/__tests__)
+- Type checking: Next.js build runs TypeScript validation; you can also run `npx tsc --noEmit`
+
+---
+
+## 🔄 Development Workflow
+
+- Branches:
+  - `main` — Stable branch
+  - Feature branches — e.g., `spectroscopy`, `lab-equipment`
+- Workflow:
+  - Create a feature branch
+  - Implement changes
+  - Run lint and build locally
+  - Open a Pull Request into `main`
 
 ---
 
@@ -189,6 +222,52 @@ Elixra features a suite of interactive tools:
   <img src="public/Assets/Equipments/Centrifuge.svg" width="60" alt="Centrifuge" title="Centrifuge" style="margin: 10px;" />
   <img src="public/Assets/Equipments/Analytical Balance.svg" width="60" alt="Analytical Balance" title="Analytical Balance" style="margin: 10px;" />
 </div>
+
+---
+
+## 🔬 Spectroscopy Pipeline (Frontend)
+
+- Generation route: [route.ts](file:///d:/Elixra/build-o-thon/app/api/spectroscopy/generate/route.ts)
+  - Prompts the AI to return detailed, multi-peak spectra and uses Unicode subscripts (e.g., CH₂).
+- Data handlers: [spectrumHandlers.ts](file:///d:/Elixra/build-o-thon/lib/spectrumHandlers.ts)
+  - Processes API JSON and preserves specific labels without generic fallbacks.
+- Page integration: [page.tsx](file:///d:/Elixra/build-o-thon/app/spectroscopy/page.tsx)
+  - Maps dynamic keys robustly (case-insensitive) and formats formulas with subscripts.
+- Graph rendering: [SpectrumGraph.tsx](file:///d:/Elixra/build-o-thon/components/SpectrumGraph.tsx)
+  - Smart tooltip positioning (clamping Y, flipping placement when needed).
+
+---
+
+## 🧱 Molecule Viewer Highlights
+
+- Main page: [page.tsx](file:///d:/Elixra/build-o-thon/app/molecules/page.tsx)
+- Quick Actions include:
+  - Periodic Table and Templates
+  - Undo/Redo
+  - Clear All — resets atoms, bonds, analysis, and validation
+- 3D Viewer: [EnhancedMolecule3DViewer.tsx](file:///d:/Elixra/build-o-thon/components/EnhancedMolecule3DViewer.tsx)
+- Bonding logic: [bondingLogic.ts](file:///d:/Elixra/build-o-thon/lib/bondingLogic.ts)
+- Validation: [chemicalValidation.ts](file:///d:/Elixra/build-o-thon/lib/chemicalValidation.ts)
+
+---
+
+## 🛡 Security & Secrets
+
+- Never commit real API keys or credentials.
+- Use `.env` (and `.env.local` for machine-specific overrides).
+- See `.env.example` for the required variables.
+
+---
+
+## 🧰 Troubleshooting
+
+- ChunkLoadError or outdated client files:
+  - Stop the dev server, delete `.next/`, then `npm run dev` again.
+- ESLint warnings:
+  - `@next/next/no-img-element`: Use `next/image` instead of `img` for optimized loading.
+  - `react-hooks/exhaustive-deps`: Include all dependencies or refactor with stable callbacks.
+- TypeScript errors (e.g., NMR multiplicity):
+  - Multiplicity types live in [spectroscopy.ts](file:///d:/Elixra/build-o-thon/types/spectroscopy.ts). Ensure union includes all used descriptors.
 
 ---
 
