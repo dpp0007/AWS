@@ -32,6 +32,7 @@ export function formatSpectrumForDisplay(
  */
 function formatUVVisSpectrum(spectrum: SpectrumData): SpectrumData {
   if (spectrum.type !== 'uv-vis') return spectrum
+  if (!spectrum.peaks || spectrum.peaks.length === 0) return spectrum
 
   // Find λmax (peak with highest absorbance)
   const lambdaMax = spectrum.peaks.reduce((max, peak) =>

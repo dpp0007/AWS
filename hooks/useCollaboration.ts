@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useCollab } from '@/app/context/CollabContext'
 
-interface Participant {
+export interface Participant {
   userId: string
   name: string
   color: string
@@ -8,7 +9,7 @@ interface Participant {
   isActive: boolean
 }
 
-interface CollaborationSession {
+export interface CollaborationSession {
   roomCode: string
   hostId: string
   participants: Participant[]
@@ -17,146 +18,84 @@ interface CollaborationSession {
 }
 
 export function useCollaboration(roomCode: string | null) {
-  const [session, setSession] = useState<CollaborationSession | null>(null)
-  const [isConnected, setIsConnected] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const intervalRef = useRef<NodeJS.Timeout | null>(null)
-  const userIdRef = useRef<string>(`user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
-  
-  // Fetch session data
-  const fetchSession = useCallback(async () => {
-    if (!roomCode) return
+  const { 
+    socket, 
+    isConnected, 
+    joinRoom, 
+    leaveRoom, 
+    updateCursor: socketUpdateCursor, 
+    sendLabAction,
+    currentUser,
+    otherUsers,
+    activeModule
+  } = useCollab()
+
+  // Map Socket users to legacy Participant interface
+  const participants = useMemo(() => {
+    const list: Participant[] = []
     
-    try {
-      const response = await fetch(`/api/collaboration/session?roomCode=${roomCode}`)
-      if (response.ok) {
-        const data = await response.json()
-        setSession(data)
-        setIsConnected(true)
-        setError(null)
-      } else {
-        setError('Session not found')
-        setIsConnected(false)
-      }
-    } catch (err) {
-      console.error('Failed to fetch session:', err)
-      setError('Failed to connect')
-      setIsConnected(false)
-    }
-  }, [roomCode])
-  
-  // Join session
-  const joinSession = useCallback(async (userName: string = 'Guest') => {
-    if (!roomCode) return
-    
-    try {
-      const response = await fetch('/api/collaboration/session', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomCode,
-          action: 'join',
-          data: {
-            userId: userIdRef.current,
-            name: userName,
-            color: `#${Math.floor(Math.random()*16777215).toString(16)}`
-          }
+    if (currentUser) {
+        list.push({
+            userId: currentUser.sid,
+            name: currentUser.name,
+            color: currentUser.color,
+            cursor: currentUser.cursor,
+            isActive: true
         })
-      })
-      
-      if (response.ok) {
-        await fetchSession()
-      }
-    } catch (err) {
-      console.error('Failed to join session:', err)
     }
-  }, [roomCode, fetchSession])
-  
-  // Update cursor position
-  const updateCursor = useCallback(async (x: number, y: number) => {
-    if (!roomCode) return
     
-    try {
-      await fetch('/api/collaboration/session', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomCode,
-          action: 'update-cursor',
-          data: {
-            userId: userIdRef.current,
-            cursor: { x, y }
-          }
+    otherUsers.forEach(u => {
+        list.push({
+            userId: u.sid,
+            name: u.name,
+            color: u.color,
+            cursor: u.cursor,
+            isActive: true
         })
-      })
-    } catch (err) {
-      console.error('Failed to update cursor:', err)
+    })
+    
+    return list
+  }, [currentUser, otherUsers])
+
+  // Mock session object for compatibility
+  const session: CollaborationSession | null = useMemo(() => {
+    if (!roomCode) return null
+    return {
+        roomCode,
+        hostId: 'host', // Todo: Implement host logic
+        participants,
+        experiment: null, // Todo: Sync experiment state
+        isActive: true
     }
-  }, [roomCode])
-  
-  // Update experiment
+  }, [roomCode, participants])
+
+  const joinSession = useCallback(async (userName: string) => {
+    if (roomCode) {
+        joinRoom(roomCode, userName)
+    }
+  }, [roomCode, joinRoom])
+
+  const updateCursor = useCallback((x: number, y: number) => {
+    socketUpdateCursor(x/100, y/100) // Convert 0-100% back to 0-1
+  }, [socketUpdateCursor])
+
   const updateExperiment = useCallback(async (experiment: any) => {
-    if (!roomCode) return
-    
-    try {
-      await fetch('/api/collaboration/session', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomCode,
-          action: 'update-experiment',
-          data: { experiment }
-        })
-      })
-      
-      await fetchSession()
-    } catch (err) {
-      console.error('Failed to update experiment:', err)
-    }
-  }, [roomCode, fetchSession])
-  
-  // Leave session
+    sendLabAction({ type: 'experiment_update', experiment })
+  }, [sendLabAction])
+
   const leaveSession = useCallback(async () => {
-    if (!roomCode) return
-    
-    try {
-      await fetch('/api/collaboration/session', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          roomCode,
-          action: 'leave',
-          data: { userId: userIdRef.current }
-        })
-      })
-    } catch (err) {
-      console.error('Failed to leave session:', err)
-    }
-  }, [roomCode])
-  
-  // Start polling for updates
-  useEffect(() => {
-    if (!roomCode) return
-    
-    // Initial fetch
-    fetchSession()
-    
-    // Poll every 2 seconds
-    intervalRef.current = setInterval(fetchSession, 2000)
-    
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current)
-      }
-      leaveSession()
-    }
-  }, [roomCode, fetchSession, leaveSession])
+    leaveRoom()
+  }, [leaveRoom])
+
+  // Cleanup on unmount handled by CollabContext provider usually, 
+  // but if this hook is used per-page, we might want to leaveRoom on unmount
+  // However, maintaining connection across pages is better.
   
   return {
     session,
     isConnected,
-    error,
-    userId: userIdRef.current,
+    error: isConnected ? null : (socket ? 'Connecting...' : 'Disconnected'),
+    userId: currentUser?.sid || '',
     joinSession,
     updateCursor,
     updateExperiment,

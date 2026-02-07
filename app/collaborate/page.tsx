@@ -16,13 +16,13 @@ export default function CollaboratePage() {
   const createSession = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/collaboration/session', {
-        method: 'POST'
-      })
-      const data = await response.json()
-      if (data.success) {
-        setCreatedRoom(data.roomCode)
-      }
+      // Generate random 6-character room code locally
+      const code = Math.random().toString(36).substring(2, 8).toUpperCase()
+      
+      // Simulate API delay for UX
+      await new Promise(resolve => setTimeout(resolve, 800))
+      
+      setCreatedRoom(code)
     } catch (error) {
       console.error('Failed to create session:', error)
       alert('Failed to create collaboration session')
@@ -39,15 +39,8 @@ export default function CollaboratePage() {
     
     setLoading(true)
     try {
-      const response = await fetch(`/api/collaboration/session?roomCode=${roomCode}`)
-      const data = await response.json()
-      
-      if (data.roomCode) {
-        // Redirect to collaborative lab
-        window.location.href = `/lab/collaborative?room=${roomCode}`
-      } else {
-        alert('Room not found')
-      }
+      // Direct redirect to lab page which handles joining via WebSocket
+      window.location.href = `/lab/collaborative?room=${roomCode.toUpperCase()}`
     } catch (error) {
       console.error('Failed to join session:', error)
       alert('Failed to join collaboration session')
