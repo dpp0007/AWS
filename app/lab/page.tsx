@@ -14,7 +14,10 @@ import {
     Flame,
     Plus,
     Atom,
-    Sparkles
+    Sparkles,
+    FlaskConical,
+    ClipboardList,
+    Beaker
 } from 'lucide-react'
 import LabTable from '@/components/LabTable'
 import ChemicalShelf from '@/components/ChemicalShelf'
@@ -58,6 +61,9 @@ export default function LabPage() {
     const [openEquipmentPanel, setOpenEquipmentPanel] = useState(false)
     const [selectedTubeContents, setSelectedTubeContents] = useState<any[]>([])
     
+    // Mobile Tab State
+    const [activeMobileTab, setActiveMobileTab] = useState<'shelf' | 'bench' | 'analysis'>('bench')
+
     // Equipment selection state
     const [availableTestTubes, setAvailableTestTubes] = useState<Array<{ id: string; contents: any[] }>>([])
     const [isSelectionModalOpen, setIsSelectionModalOpen] = useState(false)
@@ -417,13 +423,13 @@ export default function LabPage() {
             <ModernNavbar />
 
             {/* Main Content - Responsive Grid */}
-            <div className="min-h-[calc(100vh-4rem)] lg:h-[calc(100vh-4rem)] grid grid-cols-1 lg:grid-cols-[320px_1fr_380px] gap-3 sm:gap-4 p-2 sm:p-4 relative z-10">
+            <div className="h-[calc(100vh-8rem)] lg:h-[calc(100vh-4rem)] grid grid-cols-1 lg:grid-cols-[320px_1fr_380px] gap-3 sm:gap-4 p-2 sm:p-4 relative z-10 pb-20 lg:pb-4">
                 {/* Left Panel - Chemical Shelf */}
                 <motion.div
                     initial={{ x: -100, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ duration: 0.5, delay: 0.1 }}
-                    className="h-[400px] lg:h-full glass-panel rounded-3xl transition-all duration-300 overflow-hidden flex flex-col"
+                    className={`${activeMobileTab === 'shelf' ? 'flex' : 'hidden'} lg:flex h-full glass-panel rounded-3xl transition-all duration-300 overflow-hidden flex-col`}
                 >
                     {/* Header */}
                     <div className="flex-shrink-0 p-4 border-b border-elixra-copper/10 bg-elixra-cream/30 dark:bg-white/5">
@@ -440,7 +446,13 @@ export default function LabPage() {
 
                     {/* Scrollable Content */}
                     <div className="flex-1 overflow-y-auto custom-scrollbar">
-                        <ChemicalShelf onAddChemicalToTestTube={handleAddChemicalToTestTube} />
+                        <ChemicalShelf onAddChemicalToTestTube={(chemical) => {
+                            handleAddChemicalToTestTube(chemical)
+                            // On mobile, switch to bench after adding a chemical
+                            if (window.innerWidth < 1024) {
+                                setActiveMobileTab('bench')
+                            }
+                        }} />
                     </div>
                 </motion.div>
 
@@ -449,7 +461,7 @@ export default function LabPage() {
                     initial={{ y: 100, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ duration: 0.5, delay: 0.2 }}
-                    className="h-[500px] lg:h-full bg-elixra-cream/80 dark:bg-white/5 backdrop-blur-xl border border-elixra-copper/10 rounded-3xl transition-all duration-300 overflow-hidden flex flex-col shadow-inner"
+                    className={`${activeMobileTab === 'bench' ? 'flex' : 'hidden'} lg:flex h-full bg-elixra-cream/80 dark:bg-white/5 backdrop-blur-xl border border-elixra-copper/10 rounded-3xl transition-all duration-300 overflow-hidden flex-col shadow-inner relative`}
                     ref={labTableRef}
                 >
                     {/* Header */}
@@ -457,12 +469,22 @@ export default function LabPage() {
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                                 <div className="p-2 bg-elixra-bunsen/10 rounded-lg">
-                                    <Atom className="w-5 h-5 text-elixra-bunsen" />
+                                    <FlaskConical className="w-5 h-5 text-elixra-bunsen" />
                                 </div>
                                 <h2 className="text-lg font-bold text-elixra-text-primary">Lab Bench</h2>
                             </div>
                             {/* Add Glassware Buttons */}
                             <div className="flex gap-2">
+                                {/* Desktop Equipment Toggle */}
+                                <button
+                                    onClick={() => setOpenEquipmentPanel(true)}
+                                    className="hidden lg:flex items-center gap-2 px-3 py-1.5 bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 rounded-lg border border-orange-500/20 transition-all font-medium"
+                                    title="Open Advanced Equipment Panel"
+                                >
+                                    <Flame className="w-4 h-4" />
+                                    <span>Equipment</span>
+                                </button>
+                                
                                 <button
                                     onClick={() => {
                                         if (addTestTubeFunc) {
@@ -474,16 +496,33 @@ export default function LabPage() {
                                     className="flex items-center gap-2 px-3 py-1.5 btn-primary text-sm font-medium transition-all"
                                 >
                                     <Plus className="w-4 h-4" />
-                                    Test Tube
+                                    <span className="hidden sm:inline">Test Tube</span>
+                                    <span className="sm:hidden">Tube</span>
                                 </button>
                             </div>
                         </div>
                     </div>
 
                     {/* Scrollable Lab Content */}
-                    <div className="flex-1 overflow-y-auto custom-scrollbar">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar relative">
+                         {/* Equipment Quick Access for Mobile */}
+                         <div className="lg:hidden absolute top-2 right-2 z-10">
+                            <button
+                                onClick={() => setOpenEquipmentPanel(true)}
+                                className="p-2 bg-orange-500/10 hover:bg-orange-500/20 text-orange-600 rounded-lg border border-orange-500/20 shadow-sm backdrop-blur-sm"
+                            >
+                                <Flame className="w-5 h-5" />
+                            </button>
+                        </div>
+
                         <LabTable
-                            onReaction={handleReaction}
+                            onReaction={(exp) => {
+                                handleReaction(exp)
+                                // On mobile, switch to analysis after reaction
+                                if (window.innerWidth < 1024) {
+                                    setActiveMobileTab('analysis')
+                                }
+                            }}
                             reactionResult={reactionResult}
                             isReacting={isReacting}
                             onAddChemicalToTestTube={setAddChemicalToTestTube}
@@ -505,17 +544,17 @@ export default function LabPage() {
                     initial={{ x: 100, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
                     transition={{ duration: 0.5, delay: 0.3 }}
-                    className={`min-h-[600px] lg:h-full glass-panel rounded-3xl transition-all duration-300 overflow-hidden flex flex-col ${reactionResult ? 'border-elixra-bunsen/50 shadow-lg shadow-elixra-bunsen/20' : ''
+                    className={`${activeMobileTab === 'analysis' ? 'flex' : 'hidden'} lg:flex h-full glass-panel rounded-3xl transition-all duration-300 overflow-hidden flex-col ${reactionResult ? 'border-elixra-bunsen/50 shadow-lg shadow-elixra-bunsen/20' : ''
                         }`}
                 >
                     {/* Header */}
                     <div className="flex-shrink-0 p-4 border-b border-elixra-copper/10 bg-elixra-cream/30 dark:bg-white/5">
                         <div className="flex items-center gap-3">
                             <div className="p-2 bg-elixra-copper/10 rounded-lg">
-                                <Atom className="w-5 h-5 text-elixra-copper" />
+                                <ClipboardList className="w-5 h-5 text-elixra-copper" />
                             </div>
                             <div className="flex-1">
-                                <h2 className="text-lg font-bold text-elixra-text-primary">Reaction Analysis</h2>
+                                <h2 className="text-lg font-bold text-elixra-text-primary">Analysis</h2>
                                 <p className="text-xs text-elixra-text-secondary">AI-powered results</p>
                             </div>
                             {reactionResult && (
@@ -524,7 +563,7 @@ export default function LabPage() {
                                     animate={{ scale: 1 }}
                                     className="lg:hidden px-2 py-1 bg-green-500/20 border border-green-500/50 rounded-full"
                                 >
-                                    <span className="text-xs text-green-300 font-semibold">New Results!</span>
+                                    <span className="text-xs text-green-300 font-semibold">New!</span>
                                 </motion.div>
                             )}
                         </div>
@@ -541,131 +580,54 @@ export default function LabPage() {
                 </motion.div>
             </div>
 
+            {/* Mobile Bottom Navigation Bar */}
+            <div className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-elixra-charcoal border-t border-elixra-copper/10 z-50 px-4 flex items-center justify-around shadow-lg-up pb-safe">
+                <button
+                    onClick={() => setActiveMobileTab('shelf')}
+                    className={`flex flex-col items-center justify-center space-y-1 w-20 py-1 rounded-xl transition-all ${
+                        activeMobileTab === 'shelf' 
+                        ? 'text-elixra-bunsen bg-elixra-bunsen/10' 
+                        : 'text-gray-400 hover:text-gray-500'
+                    }`}
+                >
+                    <Sparkles className="w-6 h-6" />
+                    <span className="text-[10px] font-medium">Shelf</span>
+                </button>
+
+                <button
+                    onClick={() => setActiveMobileTab('bench')}
+                    className={`flex flex-col items-center justify-center space-y-1 w-20 py-1 rounded-xl transition-all ${
+                        activeMobileTab === 'bench' 
+                        ? 'text-elixra-bunsen bg-elixra-bunsen/10' 
+                        : 'text-gray-400 hover:text-gray-500'
+                    }`}
+                >
+                    <FlaskConical className="w-6 h-6" />
+                    <span className="text-[10px] font-medium">Bench</span>
+                </button>
+
+                <button
+                    onClick={() => setActiveMobileTab('analysis')}
+                    className={`flex flex-col items-center justify-center space-y-1 w-20 py-1 rounded-xl transition-all relative ${
+                        activeMobileTab === 'analysis' 
+                        ? 'text-elixra-bunsen bg-elixra-bunsen/10' 
+                        : 'text-gray-400 hover:text-gray-500'
+                    }`}
+                >
+                    <ClipboardList className="w-6 h-6" />
+                    <span className="text-[10px] font-medium">Analysis</span>
+                    {reactionResult && (
+                        <span className="absolute top-1 right-5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-white dark:border-elixra-charcoal"></span>
+                    )}
+                </button>
+            </div>
+
             {/* Mobile: View Results Button */}
 
 
-            {/* Floating Features Button */}
-            <motion.button
-                initial={{ scale: 0, rotate: -180 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.5 }}
-                onClick={() => setShowFeatures(!showFeatures)}
-                className="fixed bottom-8 right-4 sm:right-8 z-50 group"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-            >
-                {/* Glow Effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-orange-500 to-red-500 rounded-full blur-xl opacity-50 group-hover:opacity-75 transition-opacity" />
-
-                {/* Button */}
-                <div className="relative w-16 h-16 bg-gradient-to-br from-orange-500/90 to-red-500/90 backdrop-blur-xl border border-white/20 rounded-full shadow-2xl flex items-center justify-center">
-                    <motion.div
-                        key={showFeatures ? 'active' : 'inactive'}
-                        animate={{ rotate: [0, -20, 20, -10, 10, 0] }}
-                        transition={{ duration: 1.5, ease: "easeInOut" }}
-                    >
-                        <Flame className="w-7 h-7 text-white drop-shadow-lg" />
-                    </motion.div>
-                </div>
-
-                {/* Ripple Effect */}
-                <motion.div
-                    className="absolute inset-0 border-2 border-orange-500/50 rounded-full"
-                    animate={{
-                        scale: [1, 1.5, 1],
-                        opacity: [0.5, 0, 0.5],
-                    }}
-                    transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                        ease: "easeInOut"
-                    }}
-                />
-            </motion.button>
-
-            {/* Features Panel */}
-            <AnimatePresence>
-                {showFeatures && (
-                    <motion.div
-                        initial={{ opacity: 0, x: 100 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: 100 }}
-                        className="fixed bottom-28 right-4 sm:right-8 z-40 w-64"
-                    >
-                        <div className="glass-panel rounded-3xl transition-all duration-300 p-4 shadow-2xl border border-elixra-copper/20">
-                            <h3 className="text-sm font-bold text-elixra-text-primary mb-3 flex items-center gap-2">
-                                <Flame className="w-4 h-4 text-elixra-copper" />
-                                Quick Actions
-                            </h3>
-                            <div className="space-y-2">
-                                <button
-                                    onClick={handleSave}
-                                    disabled={!currentExperiment || isSaving}
-                                    className="w-full px-3 py-2 bg-elixra-bunsen/10 hover:bg-elixra-bunsen/20 border border-elixra-bunsen/30 text-elixra-bunsen-dark dark:text-elixra-bunsen rounded-lg text-sm transition-all text-left flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                                >
-                                    <Save className="w-4 h-4" />
-                                    {isSaving ? 'Saving...' : 'Save Experiment'}
-                                </button>
-                                <button
-                                    onClick={handleExport}
-                                    disabled={!currentExperiment || isExporting}
-                                    className="w-full px-3 py-2 bg-elixra-copper/10 hover:bg-elixra-copper/20 border border-elixra-copper/30 text-elixra-copper-dark dark:text-elixra-copper rounded-lg text-sm transition-all text-left flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                                >
-                                    <Download className="w-4 h-4" />
-                                    {isExporting ? 'Exporting...' : 'Export PDF'}
-                                </button>
-                                <button
-                                    onClick={handleShare}
-                                    disabled={!currentExperiment || isSharing}
-                                    className="w-full px-3 py-2 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-green-700 dark:text-green-400 rounded-lg text-sm transition-all text-left flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                                >
-                                    <Share2 className="w-4 h-4" />
-                                    {isSharing ? 'Sharing...' : 'Share Results'}
-                                </button>
-                                <button
-                                    onClick={clearExperiment}
-                                    disabled={!currentExperiment}
-                                    className="w-full px-3 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-700 dark:text-red-400 rounded-lg text-sm transition-all text-left flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                                >
-                                    <RotateCcw className="w-4 h-4" />
-                                    Clear Lab
-                                </button>
-                                {reactionResult && (
-                                    <button
-                                        onClick={() => {
-                                            reactionPanelRef.current?.scrollIntoView({
-                                                behavior: 'smooth',
-                                                block: 'start'
-                                            })
-                                            setShowFeatures(false)
-                                        }}
-                                        className="lg:hidden w-full px-3 py-2 bg-elixra-bunsen/10 hover:bg-elixra-bunsen/20 border border-elixra-bunsen/30 text-elixra-bunsen rounded-lg text-sm transition-all text-left flex items-center gap-2 font-medium"
-                                    >
-                                        <Atom className="w-4 h-4" />
-                                        View Results
-                                    </button>
-                                )}
-
-                                {/* Divider */}
-                                <div className="border-t border-elixra-copper/10 my-2"></div>
-
-                                {/* Equipment Button */}
-                                <button
-                                    onClick={() => {
-                                        setOpenEquipmentPanel(true)
-                                        setShowFeatures(false)
-                                    }}
-                                    className="w-full px-3 py-2 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-700 dark:text-orange-400 rounded-lg text-sm transition-all text-left flex items-center gap-2 font-medium"
-                                >
-                                    <Flame className="w-4 h-4" />
-                                    Lab Equipment
-                                </button>
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-
+            {/* Floating Features Button - REMOVED in favor of Tab Bar */}
+            {/* Features Panel - REMOVED in favor of Tab Bar */}
+            
             {/* Custom Scrollbar Styles */}
             <style jsx global>{`
         .custom-scrollbar::-webkit-scrollbar {

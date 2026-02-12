@@ -298,7 +298,7 @@ export default function LabTable({
                 initial={{ opacity: 0, scale: 0.8, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.8, y: -20 }}
-                className="relative group flex flex-col items-center justify-start w-[160px] sm:w-[180px]"
+                className="relative group flex flex-col items-center justify-start w-[140px] sm:w-[180px]"
               >
                 <TestTube
                   id={tube.id}
@@ -344,7 +344,7 @@ export default function LabTable({
                 initial={{ opacity: 0, scale: 0.8, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.8, y: -20 }}
-                className="relative group flex flex-col items-center justify-start w-[160px] sm:w-[180px]"
+                className="relative group flex flex-col items-center justify-start w-[140px] sm:w-[180px]"
               >
                 <Beaker
                   id={beaker.id}

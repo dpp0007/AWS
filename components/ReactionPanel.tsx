@@ -2,6 +2,8 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { Experiment, ReactionResult } from '@/types/chemistry'
+import { generateExperimentPDF } from '@/lib/pdfExport'
+import { useState } from 'react'
 import {
   Atom,
   Eye,
@@ -21,7 +23,9 @@ import {
   Lightbulb,
   FlaskConical,
   Microscope,
-  Scale
+  Scale,
+  FileText,
+  Download
 } from 'lucide-react'
 
 interface ReactionPanelProps {
@@ -31,6 +35,30 @@ interface ReactionPanelProps {
 }
 
 export default function ReactionPanel({ experiment, result, isLoading }: ReactionPanelProps) {
+  const [isExporting, setIsExporting] = useState(false)
+
+  const handleExportPDF = async () => {
+    if (!experiment || !result) return
+    
+    setIsExporting(true)
+    try {
+      // Create a report object
+      const report = {
+        experiment,
+        result,
+        date: new Date(),
+        author: 'Student Researcher' // Could be dynamic if user profile exists
+      }
+      
+      generateExperimentPDF(report)
+    } catch (error) {
+      console.error('Failed to export PDF:', error)
+      alert('Failed to generate PDF report. Please try again.')
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   if (!experiment && !result && !isLoading) {
     return (
       <div className="p-4 sm:p-6 h-full flex items-center justify-center" style={{
@@ -131,6 +159,20 @@ export default function ReactionPanel({ experiment, result, isLoading }: Reactio
                       <p className="text-xs sm:text-sm text-elixra-text-secondary font-medium opacity-90">{result.reactionType}</p>
                     </div>
                   </div>
+                  
+                  {/* Export Button */}
+                  <button
+                    onClick={handleExportPDF}
+                    disabled={isExporting}
+                    className="flex items-center gap-2 px-4 py-2 bg-elixra-bunsen hover:bg-elixra-bunsen-dark text-white rounded-lg shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed group/btn"
+                  >
+                    {isExporting ? (
+                      <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <FileText className="h-4 w-4 group-hover/btn:scale-110 transition-transform" />
+                    )}
+                    <span className="text-sm font-semibold">Export Research PDF</span>
+                  </button>
                 </div>
                 
                 <div className="bg-elixra-bunsen/5 backdrop-blur-md p-4 sm:p-5 rounded-xl border border-elixra-bunsen/10 shadow-inner">
