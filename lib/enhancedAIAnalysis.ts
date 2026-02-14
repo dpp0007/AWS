@@ -345,7 +345,9 @@ export class EnhancedAIAnalyzer {
     
     try {
       // Call the backend API
-      const response = await fetch('http://localhost:8000/analyze-molecule', {
+      // Default to 127.0.0.1 to avoid localhost resolution issues
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000'
+      const response = await fetch(`${backendUrl}/analyze-molecule`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -366,6 +368,12 @@ export class EnhancedAIAnalyzer {
           }))
         })
       });
+
+      const contentType = response.headers.get('content-type')
+      if (contentType && contentType.includes('text/html')) {
+          console.warn(`Backend URL (${backendUrl}) appears to be pointing to the frontend application.`)
+          throw new Error('Backend returned HTML instead of JSON')
+      }
 
       if (response.ok) {
         const apiData = await response.json();

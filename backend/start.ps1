@@ -26,4 +26,4 @@ Write-Host "Press Ctrl+C to stop the server" -ForegroundColor Yellow
 Write-Host ""
 
 # Run the server
-python main.py
+python backend/main.py

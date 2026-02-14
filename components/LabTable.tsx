@@ -23,6 +23,9 @@ interface LabTableProps {
   onSelectTube?: (tubeId: string) => void
   onSelectedTubeContentsChange?: (contents: ChemicalContent[]) => void
   onTestTubesChange?: (tubes: Array<{ id: string; contents: ChemicalContent[] }>) => void
+  // Collaborative props
+  externalExperimentState?: Experiment | null
+  onExperimentStateChange?: (experiment: Experiment) => void
 }
 
 export default function LabTable({
@@ -37,7 +40,9 @@ export default function LabTable({
   selectedTubeId = 'tube-1',
   onSelectTube,
   onSelectedTubeContentsChange,
-  onTestTubesChange
+  onTestTubesChange,
+  externalExperimentState,
+  onExperimentStateChange
 }: LabTableProps) {
   const [testTubes, setTestTubes] = useState<Array<{ id: string; contents: ChemicalContent[] }>>([
     { id: 'tube-1', contents: [] },
@@ -46,6 +51,57 @@ export default function LabTable({
   const [beakers, setBeakers] = useState<Array<{ id: string; contents: ChemicalContent[] }>>([
     { id: 'beaker-1', contents: [] }
   ])
+
+  // Sync with external state (for collaboration)
+  useEffect(() => {
+    if (externalExperimentState && externalExperimentState.glassware) {
+      const newTestTubes: any[] = []
+      const newBeakers: any[] = []
+      
+      externalExperimentState.glassware.forEach(item => {
+        if (item.type === 'test-tube') {
+          newTestTubes.push({ id: item.id, contents: item.contents })
+        } else if (item.type === 'beaker') {
+          newBeakers.push({ id: item.id, contents: item.contents })
+        }
+      })
+      
+      // Only update if different to avoid infinite loops
+      // JSON.stringify is a quick and dirty deep comparison
+      if (JSON.stringify(newTestTubes) !== JSON.stringify(testTubes)) {
+         setTestTubes(newTestTubes.length > 0 ? newTestTubes : [{ id: 'tube-1', contents: [] }, { id: 'tube-2', contents: [] }])
+      }
+      if (JSON.stringify(newBeakers) !== JSON.stringify(beakers)) {
+         setBeakers(newBeakers.length > 0 ? newBeakers : [{ id: 'beaker-1', contents: [] }])
+      }
+    }
+  }, [externalExperimentState])
+
+  // Broadcast state changes
+  const broadcastState = useCallback((newTestTubes: any[], newBeakers: any[]) => {
+    if (onExperimentStateChange) {
+      const experiment: Experiment = {
+        name: `Shared Experiment`,
+        chemicals: [], // derived from glassware
+        glassware: [
+          ...newTestTubes.map(tube => ({
+            id: tube.id,
+            type: 'test-tube' as const,
+            capacity: 10,
+            contents: tube.contents
+          })),
+          ...newBeakers.map(beaker => ({
+            id: beaker.id,
+            type: 'beaker' as const,
+            capacity: 50,
+            contents: beaker.contents
+          }))
+        ]
+      }
+      onExperimentStateChange(experiment)
+    }
+  }, [onExperimentStateChange])
+
   const [quantityModal, setQuantityModal] = useState<{
     chemical: Chemical | null
     glasswareId: string | null
@@ -67,16 +123,20 @@ export default function LabTable({
   const addTestTube = useCallback(() => {
     setTestTubes(prev => {
       const newId = `tube-${prev.length + 1}`
-      return [...prev, { id: newId, contents: [] }]
+      const newState = [...prev, { id: newId, contents: [] }]
+      broadcastState(newState, beakers)
+      return newState
     })
-  }, [])
+  }, [beakers, broadcastState])
 
   const addBeaker = useCallback(() => {
     setBeakers(prev => {
       const newId = `beaker-${prev.length + 1}`
-      return [...prev, { id: newId, contents: [] }]
+      const newState = [...prev, { id: newId, contents: [] }]
+      broadcastState(testTubes, newState)
+      return newState
     })
-  }, [])
+  }, [testTubes, broadcastState])
 
   // Notify parent when selected tube contents change
   useEffect(() => {
@@ -95,9 +155,13 @@ export default function LabTable({
 
   const removeGlassware = (id: string, type: 'tube' | 'beaker') => {
     if (type === 'tube') {
-      setTestTubes(testTubes.filter(tube => tube.id !== id))
+      const newState = testTubes.filter(tube => tube.id !== id)
+      setTestTubes(newState)
+      broadcastState(newState, beakers)
     } else {
-      setBeakers(beakers.filter(beaker => beaker.id !== id))
+      const newState = beakers.filter(beaker => beaker.id !== id)
+      setBeakers(newState)
+      broadcastState(testTubes, newState)
     }
   }
 
@@ -131,22 +195,28 @@ export default function LabTable({
       unit: unit as 'ml' | 'g' | 'mol' | 'drops'
     }
 
-    setTestTubes(prev => prev.map(tube =>
+    const newTestTubes = testTubes.map(tube =>
       tube.id === glasswareId
         ? { ...tube, contents: [...tube.contents, newContent] }
         : tube
-    ))
+    )
+    
+    setTestTubes(newTestTubes)
 
-    setBeakers(prev => prev.map(beaker =>
+    const newBeakers = beakers.map(beaker =>
       beaker.id === glasswareId
         ? { ...beaker, contents: [...beaker.contents, newContent] }
         : beaker
-    ))
+    )
+    
+    setBeakers(newBeakers)
+    
+    broadcastState(newTestTubes, newBeakers)
 
     // Reset the modal state after adding the chemical
     setQuantityModal({ chemical: null, glasswareId: null, isOpen: false })
     console.log('Chemical added successfully, modal reset')
-  }, [quantityModal])
+  }, [quantityModal, testTubes, beakers, broadcastState])
 
   const handleModalClose = useCallback(() => {
     console.log('Modal closing')
@@ -221,12 +291,17 @@ export default function LabTable({
   }, [addTestTube, addBeaker, onAddTestTube, onAddBeaker])
 
   const clearGlassware = (glasswareId: string) => {
-    setTestTubes(prev => prev.map(tube =>
+    const newTestTubes = testTubes.map(tube =>
       tube.id === glasswareId ? { ...tube, contents: [] } : tube
-    ))
-    setBeakers(prev => prev.map(beaker =>
+    )
+    setTestTubes(newTestTubes)
+    
+    const newBeakers = beakers.map(beaker =>
       beaker.id === glasswareId ? { ...beaker, contents: [] } : beaker
-    ))
+    )
+    setBeakers(newBeakers)
+    
+    broadcastState(newTestTubes, newBeakers)
   }
 
   const performReaction = () => {

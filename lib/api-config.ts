@@ -14,7 +14,7 @@
 export function getBackendUrl(): string {
   // Server-side: use environment variable or localhost
   if (typeof window === 'undefined') {
-    return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+    return process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000'
   }
 
   // Client-side: auto-detect or use environment variable
@@ -34,7 +34,7 @@ export function getBackendUrl(): string {
   }
 
   // Default to localhost
-  return 'http://localhost:8000'
+  return 'http://127.0.0.1:8000'
 }
 
 /**

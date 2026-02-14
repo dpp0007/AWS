@@ -11,7 +11,8 @@ export async function POST(
   { params }: { params: { sessionId: string } }
 ) {
   try {
-    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+    // Default to 127.0.0.1 to avoid localhost resolution issues
+    const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://127.0.0.1:8000'
     const { sessionId } = params
     const answer: UserAnswer = await request.json()
 
@@ -25,6 +26,15 @@ export async function POST(
         body: JSON.stringify(answer)
       }
     )
+
+    const contentType = response.headers.get('content-type')
+    if (contentType && contentType.includes('text/html')) {
+        const text = await response.text()
+        if (text.includes('This page could not be found') || text.includes('Next.js')) {
+            throw new Error(`Backend URL (${backendUrl}) appears to be pointing to the frontend application. Please ensure the Python backend is running on port 8000.`)
+        }
+        throw new Error(`Backend returned HTML instead of JSON. Status: ${response.status}`)
+    }
 
     if (!response.ok) {
       const errorText = await response.text()

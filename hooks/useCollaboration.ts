@@ -51,7 +51,7 @@ export function useCollaboration(roomCode: string | null) {
     
     try {
       const response = await fetch('/api/collaboration/session', {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomCode,
@@ -78,7 +78,7 @@ export function useCollaboration(roomCode: string | null) {
     
     try {
       await fetch('/api/collaboration/session', {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomCode,
@@ -100,7 +100,7 @@ export function useCollaboration(roomCode: string | null) {
     
     try {
       await fetch('/api/collaboration/session', {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomCode,
@@ -121,7 +121,7 @@ export function useCollaboration(roomCode: string | null) {
     
     try {
       await fetch('/api/collaboration/session', {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           roomCode,
@@ -141,8 +141,8 @@ export function useCollaboration(roomCode: string | null) {
     // Initial fetch
     fetchSession()
     
-    // Poll every 2 seconds
-    intervalRef.current = setInterval(fetchSession, 2000)
+    // Poll every 500ms for smoother updates
+    intervalRef.current = setInterval(fetchSession, 500)
     
     return () => {
       if (intervalRef.current) {

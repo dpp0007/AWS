@@ -21,15 +21,24 @@ app = FastAPI(title="Chemistry Avatar API", version="1.0.0")
 # Configure Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY environment variable is required")
+    # Try to check if it's in the .env file directly just in case
+    # This is a fallback
+    pass
 
-genai.configure(api_key=GEMINI_API_KEY)
-GEMINI_MODEL = "gemini-2.5-flash"
+if not GEMINI_API_KEY:
+    print("Warning: GEMINI_API_KEY not found in environment variables.")
+    
+try:
+    genai.configure(api_key=GEMINI_API_KEY)
+except Exception as e:
+    print(f"Error configuring Gemini API: {e}")
+
+GEMINI_MODEL = "gemini-2.0-flash"
 
 # CORS configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000"],
+    allow_origins=["http://localhost:3000", "http://localhost:3001", "http://127.0.0.1:3000", "https://www.elixra.in"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
