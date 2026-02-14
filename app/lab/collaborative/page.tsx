@@ -19,6 +19,7 @@ import {
     Plus,
     Share2,
     Save,
+    Download,
     RotateCcw
 } from 'lucide-react'
 import LabTable from '@/components/LabTable'
@@ -61,6 +62,22 @@ function CollaborativeLabContent() {
   const [isReacting, setIsReacting] = useState(false)
   const [hasJoined, setHasJoined] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    // Simulate save
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    setIsSaving(false)
+  }
+
+  const handleExport = async () => {
+    setIsExporting(true)
+    // Simulate export
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    setIsExporting(false)
+  }
   
   // Auto-join if authenticated
   useEffect(() => {

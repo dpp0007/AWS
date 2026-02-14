@@ -1,21 +1,22 @@
 # Start the FastAPI backend server
 
+$scriptDir = $PSScriptRoot
+Set-Location $scriptDir
+
 Write-Host "🚀 Starting Chemistry Lab Backend" -ForegroundColor Cyan
 Write-Host "=================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Check if venv exists
-if (-not (Test-Path "venv")) {
+if (-not (Test-Path "$scriptDir\venv")) {
     Write-Host "Virtual environment not found. Running setup..." -ForegroundColor Yellow
-    & ".\setup.ps1"
+    & "$scriptDir\setup.ps1"
     if ($LASTEXITCODE -ne 0) {
         exit 1
     }
 }
 
-# Activate virtual environment
 Write-Host "Activating virtual environment..." -ForegroundColor Yellow
-& ".\venv\Scripts\Activate.ps1"
+& "$scriptDir\venv\Scripts\Activate.ps1"
 
 Write-Host ""
 Write-Host "Starting FastAPI server..." -ForegroundColor Green
@@ -25,5 +26,4 @@ Write-Host ""
 Write-Host "Press Ctrl+C to stop the server" -ForegroundColor Yellow
 Write-Host ""
 
-# Run the server
-python backend/main.py
+python "$scriptDir\main.py"

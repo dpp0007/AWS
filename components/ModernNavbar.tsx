@@ -144,7 +144,7 @@ export default function ModernNavbar() {
               </button>
             </div>
             <div className="pt-2 px-4 pb-2">
-              <AuthButton />
+              <AuthButton dropdownPosition="top" />
             </div>
           </div>
         </motion.div>

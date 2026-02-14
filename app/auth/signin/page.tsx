@@ -73,10 +73,7 @@ export default function SignInPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-block mb-6">
             <div className="flex items-center justify-center space-x-3">
-              <img src="/Assets/Main Logo.svg" alt="Elixra Logo" className="h-12 w-12" />
-              <span className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-elixra-bunsen to-elixra-bunsen-dark">
-                Elixra
-              </span>
+              <img src="/Assets/Main Logo.svg" alt="Elixra Logo" className="h-24 w-24" />
             </div>
           </Link>
           <h2 className="text-2xl font-bold text-elixra-charcoal dark:text-white mb-2">Welcome Back</h2>
@@ -150,17 +147,13 @@ export default function SignInPage() {
             </button>
           </form>
 
-          <div className="mt-6">
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-elixra-border-subtle"></div>
-              </div>
-              <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-transparent text-elixra-secondary">Or continue with</span>
-              </div>
-            </div>
+          <div className="mt-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-elixra-border-subtle"></div>
+            <span className="text-sm text-elixra-secondary">Or continue with</span>
+            <div className="h-px flex-1 bg-elixra-border-subtle"></div>
+          </div>
 
-            <div className="mt-6">
+          <div className="mt-6">
               <button
                 onClick={() => loginWithGoogle()}
                 disabled={isLoading}
@@ -170,7 +163,6 @@ export default function SignInPage() {
                 <span>Sign in with Google</span>
               </button>
             </div>
-          </div>
 
           <p className="mt-8 text-center text-sm text-elixra-secondary">
             Don&apos;t have an account?{' '}

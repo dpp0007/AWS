@@ -18,9 +18,12 @@ import {
   ChevronRight,
   Info,
   Settings,
-  Zap
+  Zap,
+  Save,
+  Download
 } from 'lucide-react'
 import ModernNavbar from '@/components/ModernNavbar'
+import SaveConfirmation from '@/components/SaveConfirmation'
 import dynamic from 'next/dynamic'
 import MoleculeDropZone from '@/components/MoleculeDropZone'
 import { PerspectiveGrid, StaticGrid } from '@/components/GridBackground'
@@ -48,6 +51,7 @@ const EnhancedMolecule3DViewer = dynamic(() => import('@/components/EnhancedMole
 
 import { Atom, Bond } from '@/types/molecule'
 import { getBackendUrl } from '@/lib/api-config'
+import { ChemicalContent, ReactionResult } from '@/types/chemistry'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 import {

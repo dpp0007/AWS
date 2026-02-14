@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { User, LogIn, LogOut, Settings, BarChart3, UserPlus, UserCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 
-export default function AuthButton() {
+export default function AuthButton({ dropdownPosition = 'bottom' }: { dropdownPosition?: 'top' | 'bottom' }) {
   const { isAuthenticated, user, experiments, syncExperiments, logout } = useAuth()
   const [showMenu, setShowMenu] = useState(false)
   const router = useRouter()
@@ -67,10 +67,10 @@ export default function AuthButton() {
       <AnimatePresence>
         {showMenu && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: -10 }}
+            initial={{ opacity: 0, scale: 0.95, y: dropdownPosition === 'top' ? 10 : -10 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -10 }}
-            className="absolute right-0 top-full mt-3 w-72 sm:w-80 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-2xl border border-black/10 dark:border-white/10 z-[9999] overflow-hidden"
+            exit={{ opacity: 0, scale: 0.95, y: dropdownPosition === 'top' ? 10 : -10 }}
+            className={`absolute right-0 ${dropdownPosition === 'top' ? 'bottom-full mb-3' : 'top-full mt-3'} w-72 sm:w-80 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur-xl rounded-xl sm:rounded-2xl shadow-2xl border border-black/10 dark:border-white/10 z-[9999] overflow-hidden`}
           >
             <div className="p-5 border-b border-black/5 dark:border-white/10 bg-gradient-to-br from-black/5 to-transparent dark:from-white/5 dark:to-white/0">
               <p className="font-bold text-lg text-gray-900 dark:text-white truncate">
