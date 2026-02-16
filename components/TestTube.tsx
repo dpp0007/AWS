@@ -4,6 +4,10 @@ import { useDrop } from 'react-dnd'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Chemical, ChemicalContent, ReactionResult } from '@/types/chemistry'
 import { X, Droplets } from 'lucide-react'
+import { useRef, useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
+import EquipmentEffectsOrchestrator from '@/components/equipment-effects/EquipmentEffectsOrchestrator'
+import { EquipmentAttachment } from '@/lib/equipment-animations'
 
 interface TestTubeProps {
   id: string
@@ -12,16 +16,81 @@ interface TestTubeProps {
   onClear: () => void
   reactionResult: ReactionResult | null
   isReacting: boolean
+  equipmentAttachments?: EquipmentAttachment[]
+  onEquipmentChange?: (attachments: EquipmentAttachment[]) => void
 }
 
-export default function TestTube({ 
-  id, 
-  contents, 
-  onAddChemical, 
-  onClear, 
-  reactionResult, 
-  isReacting 
+export default function TestTube({
+  id,
+  contents,
+  onAddChemical,
+  onClear,
+  reactionResult,
+  isReacting,
+  equipmentAttachments = [],
+  onEquipmentChange
 }: TestTubeProps) {
+  const tubeRef = useRef<HTMLDivElement>(null)
+  const [tubePosition, setTubePosition] = useState<{
+    x: number; y: number; width: number; height: number
+  } | null>(null)
+
+  // Calculate tube position for equipment animations - REAL-TIME BINDING
+  const updateTubePosition = () => {
+    if (tubeRef.current) {
+      const rect = tubeRef.current.getBoundingClientRect()
+      setTubePosition({
+        x: rect.left,
+        y: rect.top,
+        width: rect.width,
+        height: rect.height
+      })
+    }
+  }
+
+  useEffect(() => {
+    // Initial position
+    updateTubePosition()
+
+    // Update on scroll (tube moves in viewport)
+    const handleScroll = () => updateTubePosition()
+
+    // Update on resize (window size changes)
+    const handleResize = () => updateTubePosition()
+
+    // Observe tube element for size/position changes
+    const observer = new ResizeObserver(() => updateTubePosition())
+    if (tubeRef.current) {
+      observer.observe(tubeRef.current)
+    }
+
+    window.addEventListener('scroll', handleScroll, true)
+    window.addEventListener('resize', handleResize)
+
+    // Optimized RAF-based position tracking with throttle
+    let rafId: number
+    let lastUpdate = 0
+    const THROTTLE_MS = 100
+
+    const rafUpdate = () => {
+      const now = Date.now()
+      if (now - lastUpdate >= THROTTLE_MS) {
+        updateTubePosition()
+        lastUpdate = now
+      }
+      rafId = requestAnimationFrame(rafUpdate)
+    }
+
+    rafId = requestAnimationFrame(rafUpdate)
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true)
+      window.removeEventListener('resize', handleResize)
+      observer.disconnect()
+      cancelAnimationFrame(rafId)
+    }
+  }, [])
+
   const [{ isOver, canDrop }, drop] = useDrop(() => ({
     accept: 'chemical',
     drop: (item: Chemical) => {
@@ -92,7 +161,7 @@ export default function TestTube({
 
   const getPrecipitateColor = () => {
     if (!reactionResult?.precipitateColor) return '#ffffff'
-    
+
     const color = reactionResult.precipitateColor.toLowerCase()
     if (color === 'white') return '#f8fafc'
     if (color === 'blue') return '#3b82f6'
@@ -101,21 +170,35 @@ export default function TestTube({
     if (color === 'yellow') return '#f59e0b'
     if (color === 'brown') return '#92400e'
     if (color === 'black') return '#1f2937'
-    
+
     return reactionResult.precipitateColor
   }
 
   return (
-    <div className="flex flex-col items-center space-y-2 sm:space-y-3 group">
+    <div className="flex flex-col items-center space-y-3 w-full relative">
+      {/* Tube clip path for masking liquid effects */}
+      <svg width="0" height="0" className="absolute">
+        <defs>
+          <clipPath id={`tube-clip-${id}`} clipPathUnits="objectBoundingBox">
+            <path d="M 0,0 L 1,0 L 1,0.85 Q 1,1 0.5,1 Q 0,1 0,0.85 Z" />
+          </clipPath>
+        </defs>
+      </svg>
+
+
+
       <motion.div
-        ref={drop as any}
-        className={`test-tube relative w-16 h-28 sm:w-20 sm:h-36 z-25 transition-all duration-300 ${
-          isOver && canDrop 
-            ? 'ring-4 ring-blue-400 ring-opacity-50 shadow-xl shadow-blue-400/30 scale-105' 
-            : canDrop 
-              ? 'ring-2 ring-blue-300 ring-opacity-30'
-              : ''
-        } ${isReacting ? 'reaction-glow' : ''}`}
+        ref={(node) => {
+          drop(node)
+          if (node) (tubeRef as any).current = node
+        }}
+        className={`test-tube relative w-20 h-40 transition-all duration-300 ${isOver && canDrop
+          ? 'ring-4 ring-blue-400 ring-opacity-50 shadow-xl shadow-blue-400/30 scale-105'
+          : canDrop
+            ? 'ring-2 ring-blue-300 ring-opacity-30'
+            : ''
+          } ${isReacting ? 'reaction-glow' : ''}`}
+        style={{ zIndex: 120, position: 'relative' }}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         animate={{
@@ -126,28 +209,29 @@ export default function TestTube({
         role="region"
         aria-label={`Test tube ${id}. Contains ${contents.length} chemical${contents.length !== 1 ? 's' : ''}.`}
       >
-        {/* Test tube liquid */}
+        {/* Test tube liquid - fills from BOTTOM with proper rounded shape */}
         <AnimatePresence>
           {contents.length > 0 && (
             <motion.div
-              className={`liquid ${isReacting ? 'animate-color-change' : ''}`}
+              className={`absolute bottom-0 left-0 right-0 ${isReacting ? 'animate-color-change' : ''}`}
               style={{
                 backgroundColor: getLiquidColor(),
                 height: `${getLiquidHeight()}%`,
+                borderRadius: '0 0 50% 50% / 0 0 50% 50%',
               }}
               initial={{ height: 0, opacity: 0 }}
-              animate={{ 
+              animate={{
                 height: `${getLiquidHeight()}%`,
                 opacity: 1
               }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ 
+              transition={{
                 height: { duration: 0.8, ease: 'easeOut' },
                 opacity: { duration: 0.4 }
               }}
             >
               {/* Liquid shimmer effect */}
-              <div className="absolute inset-0 overflow-hidden rounded-b-full">
+              <div className="absolute inset-0 overflow-hidden" style={{ borderRadius: '0 0 50% 50% / 0 0 50% 50%' }}>
                 <motion.div
                   className="absolute top-0 left-0 w-full h-full"
                   style={{
@@ -211,8 +295,8 @@ export default function TestTube({
                     filter: 'blur(8px)',
                   }}
                   initial={{ opacity: 0, y: 0, scale: 0.5 }}
-                  animate={{ 
-                    opacity: [0, 0.6, 0], 
+                  animate={{
+                    opacity: [0, 0.6, 0],
                     y: [-10, -40, -70],
                     scale: [0.5, 1.2, 1.5]
                   }}
@@ -249,7 +333,7 @@ export default function TestTube({
                 }}
               />
               {/* Precipitate settling effect */}
-              <div 
+              <div
                 className="absolute inset-0 rounded-b-full overflow-hidden"
                 style={{ height: '20px' }}
               >
@@ -282,30 +366,40 @@ export default function TestTube({
           )}
         </AnimatePresence>
 
-        {/* Clear button - positioned on the LEFT */}
-        {contents.length > 0 && (
-          <motion.button
-            onClick={onClear}
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className="absolute -top-2 -left-2 p-2 sm:p-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-full opacity-100 sm:opacity-0 group-hover:opacity-100 transition-all duration-200 shadow-lg z-50 touch-manipulation"
-            title="Clear contents"
-          >
-            <X className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
-          </motion.button>
-        )}
       </motion.div>
 
-      {/* Contents list */}
-      <div className="text-center min-h-[100px] w-full max-w-[140px]">
+      {/* Equipment Effects Overlay - Rendered via Portal */}
+      {tubePosition && typeof document !== 'undefined' && createPortal(
+        <EquipmentEffectsOrchestrator
+          tubeId={id}
+          tubePosition={tubePosition}
+          attachments={equipmentAttachments}
+          contents={contents}
+          onEquipmentChange={onEquipmentChange}
+        />,
+        document.body
+      )}
+
+      {/* Contents list - with dynamic spacing for equipment */}
+      <div
+        className="text-center w-full"
+        style={{
+          marginTop: equipmentAttachments.some(a => a.equipmentType === 'analytical-balance' && a.isActive)
+            ? '140px'
+            : equipmentAttachments.length > 0
+              ? '80px'
+              : '20px', // Add 20px gap when no equipment
+          minHeight: '120px'
+        }}
+      >
         {contents.length === 0 ? (
-          <div className="text-xs text-gray-400 dark:text-gray-500 flex flex-col items-center space-y-2 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
+          <div className="text-xs text-gray-400 flex flex-col items-center space-y-2 p-4 bg-slate-800/30 rounded-xl border-2 border-dashed border-gray-600 hover:border-blue-400 transition-colors pointer-events-none">
             <Droplets className="h-6 w-6" />
             <span className="font-medium">Drop chemicals here</span>
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+            <div className="text-xs font-semibold text-gray-300 mb-2">
               Contents ({contents.length})
             </div>
             {contents.map((content, index) => (
@@ -319,7 +413,7 @@ export default function TestTube({
                 <div className="bg-white dark:bg-gray-700 rounded-lg p-3 shadow-sm border border-gray-200 dark:border-gray-600 hover:shadow-md transition-shadow">
                   {/* Chemical Color Indicator */}
                   <div className="flex items-center space-x-2 mb-1">
-                    <div 
+                    <div
                       className="w-3 h-3 rounded-full border border-gray-300 dark:border-gray-600"
                       style={{ backgroundColor: content.chemical.color }}
                     />
@@ -327,12 +421,12 @@ export default function TestTube({
                       {content.chemical.formula}
                     </div>
                   </div>
-                  
+
                   {/* Amount */}
                   <div className="text-xs text-gray-600 dark:text-gray-400 font-medium">
                     {content.amount < 1 ? content.amount.toFixed(2) : content.amount} {content.unit}
                   </div>
-                  
+
                   {/* Chemical Name (on hover) */}
                   <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
                     {content.chemical.name}
@@ -340,7 +434,7 @@ export default function TestTube({
                 </div>
               </motion.div>
             ))}
-            
+
             {/* Total Volume/Mass */}
             <div className="mt-3 pt-2 border-t border-gray-200 dark:border-gray-600">
               <div className="text-xs font-semibold text-blue-600 dark:text-blue-400">

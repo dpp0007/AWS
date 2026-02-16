@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { GoogleGenerativeAI } from '@google/generative-ai'
 import { Experiment, ReactionResult } from '@/types/chemistry'
-
-// Initialize Gemini AI
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '')
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,99 +12,186 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Check if API key is configured
-    if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json(
-        { error: 'Gemini API key not configured. Please set GEMINI_API_KEY in environment variables.' },
-        { status: 503 }
-      )
-    }
-
     try {
-      // Use Gemini AI for reaction analysis
-      // Using the latest Gemini 2.5 Flash model (as of Oct 2025)
-      const model = genAI.getGenerativeModel({ 
-        model: 'gemini-2.0-flash-exp',
-        // Disable thinking to prioritize speed for chemistry analysis
-        generationConfig: {
-          temperature: 0.7,
-          topP: 0.95,
-          topK: 40,
-          maxOutputTokens: 2048,
-        }
-      })
-
-      // Prepare the prompt for Gemini
+      // Use Ollama backend for reaction analysis
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+      console.log('Backend URL:', backendUrl)
+      
+      // Prepare the prompt
       const chemicalsList = experiment.chemicals
         .map(c => `${c.chemical.name} (${c.chemical.formula}): ${c.amount} ${c.unit}`)
         .join('\n')
 
-      const prompt = `You are an expert chemistry assistant analyzing a chemical reaction. 
+      // Calculate actual temperature from equipment
+      let reactionTemperature = 25 // Room temperature default
+      const bunsenBurner = experiment.equipment?.find(eq => eq.name === 'bunsen-burner')
+      const hotPlate = experiment.equipment?.find(eq => eq.name === 'hot-plate')
+      const stirrer = experiment.equipment?.find(eq => eq.name === 'magnetic-stirrer')
+      
+      if (bunsenBurner) {
+        // Handle both old format (value/unit) and new format (settings object)
+        const burnerTemp = (bunsenBurner as any).settings?.temperature || (bunsenBurner as any).value || 0
+        reactionTemperature = 25 + (burnerTemp / 1000) * 275 // 0-1000°C burner → 25-300°C solution
+      } else if (hotPlate) {
+        const plateTemp = (hotPlate as any).settings?.temperature || (hotPlate as any).value || 25
+        reactionTemperature = Math.max(reactionTemperature, plateTemp)
+      }
+      
+      if (stirrer) {
+        const rpm = (stirrer as any).settings?.rpm || (stirrer as any).value || 0
+        reactionTemperature += (rpm / 1500) * 2 // Friction heat
+      }
+      
+      // Calculate temperature effect on reaction rate (Arrhenius equation)
+      const R = 8.314 // Gas constant J/(mol·K)
+      const Ea = 50000 // Activation energy J/mol (typical value)
+      const T = reactionTemperature + 273.15 // Convert to Kelvin
+      const T0 = 298.15 // Room temperature in Kelvin
+      const rateFactor = Math.exp(-Ea / (R * T)) / Math.exp(-Ea / (R * T0))
+      const speedMultiplier = rateFactor.toFixed(2)
+      
+      // Include equipment information with calculated effects
+      const equipmentInfo = experiment.equipment && experiment.equipment.length > 0
+        ? `\n\nLab Equipment Active:\n${experiment.equipment.map(eq => {
+            const eqAny = eq as any
+            const settings = eqAny.settings || {}
+            const settingsStr = Object.entries(settings)
+              .map(([key, value]) => `${key}: ${value}`)
+              .join(', ')
+            return `- ${eqAny.name}: ${settingsStr || `value: ${eqAny.value} ${eqAny.unit}`}`
+          }).join('\n')}\n\nCALCULATED EFFECTS:\n- Reaction Temperature: ${reactionTemperature.toFixed(1)}°C\n- Reaction Rate Multiplier: ${speedMultiplier}x (Arrhenius equation)\n- ${reactionTemperature > 100 ? 'WARNING: High temperature may cause decomposition, evaporation, or side reactions' : reactionTemperature > 50 ? 'Elevated temperature accelerates reaction significantly' : 'Room temperature - normal reaction kinetics'}`
+        : '\n\nNo lab equipment active (room temperature 25°C, no stirring, no heating, rate multiplier: 1.0x)'
 
-Chemicals being mixed:
-${chemicalsList}
+      // Try to call the analyze-reaction endpoint first, fall back to /chat if it doesn't exist
+      let response = await fetch(`${backendUrl}/analyze-reaction`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: 'Analyze reaction',
+          context: 'Chemical reaction analysis',
+          chemicals: experiment.chemicals.map(c => c.chemical.name),
+          equipment: experiment.equipment?.map(eq => eq.name) || []
+        })
+      })
 
-Analyze this chemical reaction and provide a detailed response in the following JSON format:
+      // If analyze-reaction doesn't exist (404), try the /chat endpoint
+      if (response.status === 404) {
+        console.log('analyze-reaction endpoint not found, trying /chat endpoint')
+        const prompt = `You are an expert chemistry assistant. Analyze this chemical reaction and provide ONLY a valid JSON response (no markdown, no extra text):
+
+Chemicals: ${experiment.chemicals.map(c => `${c.chemical.name} (${c.chemical.formula}): ${c.amount} ${c.unit}`).join(', ')}
+${experiment.equipment && experiment.equipment.length > 0 ? `Equipment: ${experiment.equipment.map(eq => eq.name).join(', ')}` : ''}
+
+Return ONLY this JSON structure:
 {
-  "color": "describe the final solution color (e.g., 'blue', 'colorless', 'light green')",
-  "smell": "describe any smell (e.g., 'pungent', 'sweet', 'none')",
-  "precipitate": true or false,
-  "precipitateColor": "color of precipitate if any (e.g., 'white', 'blue', 'brown')",
-  "products": ["list", "of", "product", "formulas"],
-  "balancedEquation": "complete balanced chemical equation with states and arrows",
-  "reactionType": "type of reaction (e.g., 'precipitation', 'acid-base', 'redox', 'complexation', 'no reaction')",
-  "observations": ["detailed", "observation", "points"],
-  "safetyNotes": ["important", "safety", "warnings"],
-  "temperature": "increased" or "decreased" or "unchanged",
-  "gasEvolution": true or false,
-  "confidence": 0.0 to 1.0
-}
+  "color": "final solution color",
+  "smell": "smell or 'none'",
+  "precipitate": true/false,
+  "precipitateColor": "color or null",
+  "products": ["product1", "product2"],
+  "balancedEquation": "balanced equation",
+  "reactionType": "reaction type",
+  "observations": ["observation1", "observation2"],
+  "safetyNotes": ["note1", "note2"],
+  "temperature": "increased/decreased/unchanged",
+  "gasEvolution": true/false,
+  "confidence": 0.5
+}`
 
-Provide ONLY the JSON response, no additional text. Ensure all field names match exactly.`
+        response = await fetch(`${backendUrl}/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message: prompt,
+            context: 'Chemical reaction analysis',
+            chemicals: experiment.chemicals.map(c => c.chemical.name),
+            equipment: experiment.equipment?.map(eq => eq.name) || []
+          })
+        })
+      }
 
-      const result = await model.generateContent(prompt)
-      const response = await result.response
-      const text = response.text()
+      if (!response.ok) {
+        throw new Error(`Backend returned ${response.status}`)
+      }
+
+      // Read the streaming response
+      const reader = response.body?.getReader()
+      const decoder = new TextDecoder()
+      let fullText = ''
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          
+          const chunk = decoder.decode(value)
+          const lines = chunk.split('\n').filter(line => line.trim())
+          
+          for (const line of lines) {
+            try {
+              const data = JSON.parse(line)
+              if (data.token) {
+                fullText += data.token
+              }
+            } catch (e) {
+              // Ignore parse errors
+            }
+          }
+        }
+      }
 
       // Parse the JSON response
       let reactionResult: ReactionResult
       
-      // Try to extract JSON from the response
-      const jsonMatch = text.match(/\{[\s\S]*\}/)
-      if (jsonMatch) {
-        reactionResult = JSON.parse(jsonMatch[0])
+      // Clean up the response
+      let text = fullText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+      
+      // Try to extract JSON from the response - find the first { and last }
+      const firstBrace = text.indexOf('{')
+      const lastBrace = text.lastIndexOf('}')
+      
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        const jsonStr = text.substring(firstBrace, lastBrace + 1)
+        try {
+          reactionResult = JSON.parse(jsonStr)
+        } catch (parseError) {
+          console.error('JSON parse error:', parseError, 'JSON string:', jsonStr)
+          throw new Error(`Failed to parse JSON response: ${parseError}`)
+        }
       } else {
-        throw new Error('Invalid JSON response from AI')
+        throw new Error('No valid JSON found in AI response')
       }
 
       // Validate and ensure all required fields are present
       const validatedResult: ReactionResult = {
-        color: reactionResult.color,
-        smell: reactionResult.smell ,
-        precipitate: reactionResult.precipitate,
-        precipitateColor: reactionResult.precipitateColor,
-        products: reactionResult.products ,
-        balancedEquation: reactionResult.balancedEquation ,
-        reactionType: reactionResult.reactionType ,
-        observations: reactionResult.observations ,
-        safetyNotes: reactionResult.safetyNotes ,
-        temperature: reactionResult.temperature ,
-        gasEvolution: reactionResult.gasEvolution ,
-        confidence: reactionResult.confidence 
+        color: reactionResult.color || 'unknown',
+        smell: reactionResult.smell || 'none',
+        precipitate: Boolean(reactionResult.precipitate),
+        precipitateColor: reactionResult.precipitateColor || undefined,
+        products: Array.isArray(reactionResult.products) ? reactionResult.products : ['Unknown'],
+        balancedEquation: reactionResult.balancedEquation || 'Reaction equation unknown',
+        reactionType: reactionResult.reactionType || 'unknown',
+        observations: Array.isArray(reactionResult.observations) ? reactionResult.observations : ['Reaction occurred'],
+        safetyNotes: Array.isArray(reactionResult.safetyNotes) ? reactionResult.safetyNotes : ['Handle with care'],
+        temperature: reactionResult.temperature || 'unchanged',
+        gasEvolution: Boolean(reactionResult.gasEvolution),
+        confidence: typeof reactionResult.confidence === 'number' ? Math.min(1, Math.max(0, reactionResult.confidence)) : 0.5
       }
 
-      console.log('AI Analysis successful:', validatedResult)
+      console.log('Ollama Analysis successful:', validatedResult)
       return NextResponse.json(validatedResult)
 
     } catch (aiError) {
-      console.error('Gemini AI error:', aiError)
-      return NextResponse.json(
-        { 
-          error: 'AI analysis failed. Please check your API key or try again later.',
-          details: aiError instanceof Error ? aiError.message : 'Unknown error'
-        },
-        { status: 503 }
-      )
+      console.error('Ollama AI error, using fallback:', aiError)
+      
+      // Fallback: Use deterministic reactions
+      const fallbackResult = generateFallbackReaction(experiment)
+      console.log('Using fallback reaction:', fallbackResult)
+      return NextResponse.json(fallbackResult)
     }
 
   } catch (error) {
@@ -117,5 +200,95 @@ Provide ONLY the JSON response, no additional text. Ensure all field names match
       { error: 'Failed to analyze reaction' },
       { status: 500 }
     )
+  }
+}
+
+// Fallback function for deterministic reactions
+function generateFallbackReaction(experiment: Experiment): ReactionResult {
+  const formulas = experiment.chemicals.map(c => c.chemical.formula)
+  
+  // Common reactions database
+  const reactions: Record<string, ReactionResult> = {
+    'NaCl+AgNO₃': {
+      color: 'white precipitate',
+      smell: 'none',
+      precipitate: true,
+      precipitateColor: 'white',
+      products: ['AgCl', 'NaNO₃'],
+      balancedEquation: 'NaCl + AgNO₃ → AgCl↓ + NaNO₃',
+      reactionType: 'precipitation',
+      observations: [
+        'White precipitate forms immediately',
+        'Solution becomes cloudy',
+        'Precipitate settles at bottom'
+      ],
+      safetyNotes: ['Handle silver compounds with care', 'Avoid skin contact'],
+      temperature: 'unchanged',
+      gasEvolution: false,
+      confidence: 0.95
+    },
+    'CuSO₄+NaOH': {
+      color: 'blue precipitate',
+      smell: 'none',
+      precipitate: true,
+      precipitateColor: 'blue',
+      products: ['Cu(OH)₂', 'Na₂SO₄'],
+      balancedEquation: 'CuSO₄ + 2NaOH → Cu(OH)₂↓ + Na₂SO₄',
+      reactionType: 'precipitation',
+      observations: [
+        'Blue gelatinous precipitate forms',
+        'Solution color changes from blue to lighter blue',
+        'Precipitate is insoluble'
+      ],
+      safetyNotes: ['NaOH is corrosive', 'Wear protective equipment'],
+      temperature: 'increased',
+      gasEvolution: false,
+      confidence: 0.92
+    },
+    'HCl+NaOH': {
+      color: 'colorless',
+      smell: 'none',
+      precipitate: false,
+      precipitateColor: undefined,
+      products: ['NaCl', 'H₂O'],
+      balancedEquation: 'HCl + NaOH → NaCl + H₂O',
+      reactionType: 'acid-base neutralization',
+      observations: [
+        'Solution becomes warm',
+        'No visible change in color',
+        'pH changes to neutral'
+      ],
+      safetyNotes: ['Exothermic reaction', 'Handle acids and bases carefully'],
+      temperature: 'increased',
+      gasEvolution: false,
+      confidence: 0.98
+    }
+  }
+
+  // Try to find matching reaction
+  const key1 = formulas.sort().join('+')
+  const key2 = formulas.reverse().join('+')
+  
+  if (reactions[key1]) return reactions[key1]
+  if (reactions[key2]) return reactions[key2]
+
+  // Generic fallback
+  return {
+    color: 'mixed',
+    smell: 'none',
+    precipitate: false,
+    precipitateColor: undefined,
+    products: ['Mixed solution'],
+    balancedEquation: `${formulas.join(' + ')} → Mixed solution`,
+    reactionType: 'mixing',
+    observations: [
+      'Chemicals mixed together',
+      'Solution color may change',
+      'No obvious reaction observed'
+    ],
+    safetyNotes: ['Handle all chemicals with care', 'Wear protective equipment'],
+    temperature: 'unchanged',
+    gasEvolution: false,
+    confidence: 0.5
   }
 }
