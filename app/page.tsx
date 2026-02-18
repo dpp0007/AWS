@@ -2,6 +2,7 @@
 
 import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
+import Image from 'next/image'
 import { 
   Atom, Beaker, TestTube, Zap, Users, Sparkles, 
   ArrowRight, Play, Check, Brain, Target, Microscope, 
@@ -362,9 +363,11 @@ function FeatureCard({ feature, index, range, targetScale, total }: {
           {/* Right Side: SVG Visual */}
           {feature.title !== 'Daily Quizzes' && (
             <div className="flex-1 flex w-full h-full relative items-center justify-center">
-              <img 
+              <Image 
                 src={feature.svgPath} 
                 alt={feature.title} 
+                width={500}
+                height={500}
                 className="w-full h-full object-contain max-h-[300px] md:max-h-[500px] drop-shadow-2xl" 
               />
             </div>
@@ -373,9 +376,11 @@ function FeatureCard({ feature, index, range, targetScale, total }: {
 
         {/* Daily Quizzes SVG - Positioned Absolutely to bypass padding */}
         {feature.title === 'Daily Quizzes' && (
-          <img 
+          <Image 
             src={feature.svgPath} 
             alt={feature.title} 
+            width={500}
+            height={500}
             className="absolute bottom-0 right-0 w-auto h-auto max-w-[60%] max-h-[90%] object-contain object-bottom-right pointer-events-none drop-shadow-2xl z-10"
             style={{ transformOrigin: 'bottom right', transform: 'scale(2.0)' }}
           />

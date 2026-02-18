@@ -450,7 +450,7 @@ const phase = time % perfiod
       console.log('🛑 Stopping animation')
       cancelAnimationFrame(frameId)
     }
-  }, [])
+  }, [nodes.LeftArm, nodes.LeftForeArm, nodes.RightArm, nodes.RightForeArm])
   
   return (
     <group ref={groupRef} {...{ dispose: null }} position={[0, 0.5, 0]} scale={[1, 1, 1]}>

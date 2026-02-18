@@ -60,7 +60,7 @@ export default function BunsenBurner({ temperature, isActive, tubePosition }: Bu
         }, spawnRate)
 
         return () => clearInterval(interval)
-    }, [isActive, temperature, tubePosition])
+    }, [isActive, temperature])
 
     if (!isActive) return null
 

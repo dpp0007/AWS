@@ -26,6 +26,23 @@ export default function CollaborationNotifications({ session, userId }: Collabor
     
     const currentCount = session.participants?.length || 0
     
+    const addNotification = (message: string, userName: string, userColor: string) => {
+      const notification: Notification = {
+        id: `notif-${Date.now()}-${Math.random()}`,
+        message,
+        userName,
+        userColor,
+        timestamp: new Date()
+      }
+      
+      setNotifications(prev => [notification, ...prev.slice(0, 4)])
+      
+      // Auto-remove after 5 seconds
+      setTimeout(() => {
+        setNotifications(prev => prev.filter(n => n.id !== notification.id))
+      }, 5000)
+    }
+    
     // Detect new participants
     if (currentCount > prevParticipantCount && prevParticipantCount > 0) {
       const newParticipant = session.participants[currentCount - 1]
@@ -48,24 +65,7 @@ export default function CollaborationNotifications({ session, userId }: Collabor
     }
     
     setPrevParticipantCount(currentCount)
-  }, [session?.participants?.length])
-  
-  const addNotification = (message: string, userName: string, userColor: string) => {
-    const notification: Notification = {
-      id: `notif-${Date.now()}-${Math.random()}`,
-      message,
-      userName,
-      userColor,
-      timestamp: new Date()
-    }
-    
-    setNotifications(prev => [notification, ...prev.slice(0, 4)])
-    
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-      setNotifications(prev => prev.filter(n => n.id !== notification.id))
-    }, 5000)
-  }
+  }, [session, userId, prevParticipantCount])
   
   return (
     <div className="fixed top-20 right-6 z-30 space-y-2 max-w-sm">

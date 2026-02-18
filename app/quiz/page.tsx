@@ -172,9 +172,6 @@ export default function QuizPage() {
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev && prev <= 1) {
-          handleSubmitAnswer(true).then(() => {
-            handleNextQuestion()
-          })
           return null
         }
         return prev ? prev - 1 : null
@@ -183,6 +180,15 @@ export default function QuizPage() {
 
     return () => clearInterval(timer)
   }, [timeLeft, stage, config.include_timer])
+
+  // Handle timer expiration
+  useEffect(() => {
+    if (timeLeft === 0 && stage === 'quiz') {
+      handleSubmitAnswer(true).then(() => {
+        handleNextQuestion()
+      })
+    }
+  }, [timeLeft, stage])
 
   const handleStartQuiz = async () => {
     setLoading(true)
@@ -907,7 +913,8 @@ export default function QuizPage() {
                         num_questions: 5,
                         question_types: ['mcq'],
                         include_timer: false,
-                        time_limit_per_question: null
+                        time_limit_per_question: null,
+                        topics: []
                       })
                     }}
                     className="w-full btn-primary flex items-center justify-center gap-2 shadow-lg shadow-elixra-bunsen/25 hover:shadow-elixra-bunsen/40 hover:scale-[1.02] active:scale-[0.98]"

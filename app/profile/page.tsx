@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
 import { 
   ArrowLeft, User, Mail, Calendar, FlaskConical, 
@@ -129,9 +130,11 @@ export default function ProfilePage() {
                   <div className="relative z-10 flex flex-col items-center text-center">
                 <div className="relative mb-6">
                   {user.image ? (
-                    <img 
+                    <Image 
                       src={user.image} 
                       alt={user.name || 'User'} 
+                      width={128}
+                      height={128}
                       className="w-32 h-32 rounded-full border-4 border-white/50 dark:border-white/10 shadow-xl object-cover"
                     />
                   ) : (
@@ -397,9 +400,11 @@ export default function ProfilePage() {
                   <div className="flex justify-center mb-8">
                     <div className="relative group cursor-pointer">
                       {editImage ? (
-                        <img 
+                        <Image 
                           src={editImage} 
                           alt="Preview" 
+                          width={112}
+                          height={112}
                           className="w-28 h-28 rounded-full border-4 border-white/50 dark:border-white/10 object-cover group-hover:opacity-50 transition-opacity"
                         />
                       ) : (
@@ -433,9 +438,11 @@ export default function ProfilePage() {
                               : 'hover:bg-white/10 hover:scale-105 border border-transparent hover:border-white/20'
                           }`}
                         >
-                          <img 
+                          <Image 
                             src={avatar} 
                             alt="Avatar option" 
+                            width={80}
+                            height={80}
                             className="w-full h-full rounded-full object-contain"
                           />
                           {editImage === avatar && (

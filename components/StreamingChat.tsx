@@ -52,75 +52,77 @@ export default function StreamingChat({
 
   // Initialize WebSocket connection
   useEffect(() => {
-    connectWebSocket()
+    const connect = () => {
+      setConnectionStatus('connecting')
+      
+      try {
+        const wsUrl = `${getWebSocketUrl()}/ws`
+        const ws = new WebSocket(wsUrl)
+        
+        ws.onopen = () => {
+          console.log('WebSocket connected')
+          setConnectionStatus('connected')
+        }
+        
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data)
+            
+            if (data.done) {
+              setStreaming(false)
+              
+              const finalContent = currentResponseRef.current
+              if (finalContent) {
+                setMessages(prev => [...prev, {
+                  role: 'assistant',
+                  content: finalContent,
+                  timestamp: new Date()
+                }])
+              }
+              
+              currentResponseRef.current = ''
+              setCurrentResponse('')
+            } else if (data.token) {
+              currentResponseRef.current += data.token
+              setCurrentResponse(currentResponseRef.current)
+              onSpeakingChange?.(true)
+            }
+          } catch (e) {
+            console.error('Error parsing message:', e)
+          }
+        }
+        
+        ws.onerror = (error) => {
+          console.error('WebSocket error:', error)
+          setConnectionStatus('disconnected')
+        }
+        
+        ws.onclose = () => {
+          console.log('WebSocket disconnected')
+          setConnectionStatus('disconnected')
+          
+          setTimeout(() => {
+            if (wsRef.current?.readyState === WebSocket.CLOSED) {
+              connect()
+            }
+          }, 3000)
+        }
+        
+        wsRef.current = ws
+      } catch (error) {
+        console.error('Failed to create WebSocket:', error)
+        setConnectionStatus('disconnected')
+      }
+    }
+
+    connect()
     
     return () => {
       wsRef.current?.close()
     }
-  }, [])
+  }, [onSpeakingChange])
 
-  const connectWebSocket = () => {
-    setConnectionStatus('connecting')
-    
-    try {
-      const wsUrl = `${getWebSocketUrl()}/ws`
-      const ws = new WebSocket(wsUrl)
-      
-      ws.onopen = () => {
-        console.log('WebSocket connected')
-        setConnectionStatus('connected')
-      }
-      
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
-          
-          if (data.done) {
-            setStreaming(false)
-            
-            const finalContent = currentResponseRef.current
-            if (finalContent) {
-              setMessages(prev => [...prev, {
-                role: 'assistant',
-                content: finalContent,
-                timestamp: new Date()
-              }])
-            }
-            
-            currentResponseRef.current = ''
-            setCurrentResponse('')
-          } else if (data.token) {
-            currentResponseRef.current += data.token
-            setCurrentResponse(currentResponseRef.current)
-            onSpeakingChange?.(true)
-          }
-        } catch (e) {
-          console.error('Error parsing message:', e)
-        }
-      }
-      
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error)
-        setConnectionStatus('disconnected')
-      }
-      
-      ws.onclose = () => {
-        console.log('WebSocket disconnected')
-        setConnectionStatus('disconnected')
-        
-        setTimeout(() => {
-          if (wsRef.current?.readyState === WebSocket.CLOSED) {
-            connectWebSocket()
-          }
-        }, 3000)
-      }
-      
-      wsRef.current = ws
-    } catch (error) {
-      console.error('Failed to create WebSocket:', error)
-      setConnectionStatus('disconnected')
-    }
-  }
+
 
   const sendMessage = async () => {
     if (!input.trim() || streaming || connectionStatus !== 'connected') return

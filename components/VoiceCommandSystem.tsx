@@ -273,7 +273,7 @@ export default function VoiceCommandSystem({
       setPlaceholderIndex(prev => (prev + 1) % PLACEHOLDERS.length)
     }, 3000)
     return () => clearInterval(interval)
-  }, [hasInteracted])
+  }, [hasInteracted, PLACEHOLDERS.length])
 
   // Initialize speech recognition
   useEffect(() => {

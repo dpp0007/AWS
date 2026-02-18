@@ -75,7 +75,7 @@ export default function LabTable({
          setBeakers(newBeakers.length > 0 ? newBeakers : [{ id: 'beaker-1', contents: [] }])
       }
     }
-  }, [externalExperimentState])
+  }, [externalExperimentState, testTubes, beakers])
 
   // Broadcast state changes
   const broadcastState = useCallback((newTestTubes: any[], newBeakers: any[]) => {

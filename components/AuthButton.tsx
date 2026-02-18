@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { User, LogIn, LogOut, Settings, BarChart3, UserPlus, UserCircle } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -42,9 +43,11 @@ export default function AuthButton({ dropdownPosition = 'bottom' }: { dropdownPo
 
         <div className="relative z-10 flex items-center justify-center w-7 h-7 rounded-full border border-black/10 dark:border-white/20 shadow-inner overflow-hidden bg-white/20 dark:bg-black/20">
           {user?.image ? (
-            <img
+            <Image
               src={user.image}
               alt={user.name || 'User'}
+              width={28}
+              height={28}
               className="w-full h-full object-cover"
             />
           ) : (

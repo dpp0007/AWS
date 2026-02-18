@@ -20,39 +20,39 @@ export default function DailyChallengeCard() {
   const [timeLeft, setTimeLeft] = useState('')
   
   useEffect(() => {
+    const fetchChallenge = async () => {
+      try {
+        const response = await fetch('/api/challenges/daily')
+        const data = await response.json()
+        setChallenge(data)
+        // Check if user completed it
+        // This would need user ID check
+      } catch (error) {
+        console.error('Failed to fetch challenge:', error)
+      }
+    }
+    
+    const updateTimeLeft = () => {
+      if (!challenge) return
+      
+      const now = new Date().getTime()
+      const expires = new Date(challenge.expiresAt).getTime()
+      const diff = expires - now
+      
+      if (diff <= 0) {
+        setTimeLeft('Expired')
+        return
+      }
+      
+      const hours = Math.floor(diff / (1000 * 60 * 60))
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+      setTimeLeft(`${hours}h ${minutes}m`)
+    }
+    
     fetchChallenge()
     const interval = setInterval(updateTimeLeft, 1000)
     return () => clearInterval(interval)
-  }, [])
-  
-  const fetchChallenge = async () => {
-    try {
-      const response = await fetch('/api/challenges/daily')
-      const data = await response.json()
-      setChallenge(data)
-      // Check if user completed it
-      // This would need user ID check
-    } catch (error) {
-      console.error('Failed to fetch challenge:', error)
-    }
-  }
-  
-  const updateTimeLeft = () => {
-    if (!challenge) return
-    
-    const now = new Date().getTime()
-    const expires = new Date(challenge.expiresAt).getTime()
-    const diff = expires - now
-    
-    if (diff <= 0) {
-      setTimeLeft('Expired')
-      return
-    }
-    
-    const hours = Math.floor(diff / (1000 * 60 * 60))
-    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-    setTimeLeft(`${hours}h ${minutes}m`)
-  }
+  }, [challenge])
   
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {

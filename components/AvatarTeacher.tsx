@@ -135,7 +135,7 @@ function AvatarModel({ speaking = false, lipSyncIntensity = 0 }: { speaking: boo
     console.log('🎭 AvatarModel mounted, groupRef:', !!groupRef.current)
     console.log('🎭 Scene children:', clonedScene.children.length)
     invalidate() // Force a render
-  }, [clonedScene, invalidate])
+  }, [clonedScene, invalidate, morphTargetMeshes])
   
 
   
@@ -394,7 +394,7 @@ useGLTF.preload('/avatar.glb')
 export default function AvatarTeacher({ speaking = false, lipSyncIntensity = 0 }: { speaking: boolean, lipSyncIntensity?: number }) {
   useEffect(() => {
     console.log('🎬 AvatarTeacher mounted, speaking:', speaking)
-  }, [])
+  }, [speaking])
   
   useEffect(() => {
     console.log('🎤 Speaking prop changed:', speaking, 'intensity:', lipSyncIntensity)

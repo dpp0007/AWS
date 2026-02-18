@@ -109,7 +109,7 @@ export default function TestTube({
       clearTimeout(forceTimer)
       window.removeEventListener('keydown', handleDebugToggle)
     }
-  }, [id, debugMode])
+  }, [id, debugMode, updateTubePosition])
 
   const [{ isOver, canDrop }, drop] = useDrop(() => ({
     accept: 'chemical',

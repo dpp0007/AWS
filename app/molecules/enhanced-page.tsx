@@ -71,13 +71,14 @@ export default function EnhancedMoleculesPage() {
   // Initialize performance monitoring
   useEffect(() => {
     performanceMonitorRef.current.start()
-    const unsubscribe = performanceMonitorRef.current.onFPSChange((newFPS, newQuality) => {
+    const monitor = performanceMonitorRef.current
+    const unsubscribe = monitor.onFPSChange((newFPS, newQuality) => {
       setFPS(newFPS)
       setQualityLevel(newQuality)
     })
     
     return () => {
-      performanceMonitorRef.current.stop()
+      monitor.stop()
       unsubscribe()
     }
   }, [])

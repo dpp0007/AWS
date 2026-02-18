@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { BookOpen, Plus, Edit, Trash2, X, Save } from 'lucide-react'
 
@@ -25,11 +25,7 @@ export default function LabNotebook({ experimentId }: { experimentId?: string })
   })
   const [isEditing, setIsEditing] = useState(false)
   
-  useEffect(() => {
-    fetchEntries()
-  }, [experimentId])
-  
-  const fetchEntries = async () => {
+  const fetchEntries = useCallback(async () => {
     try {
       const url = experimentId 
         ? `/api/notebook?experimentId=${experimentId}`
@@ -40,7 +36,11 @@ export default function LabNotebook({ experimentId }: { experimentId?: string })
     } catch (error) {
       console.error('Failed to fetch notebook entries:', error)
     }
-  }
+  }, [experimentId])
+
+  useEffect(() => {
+    fetchEntries()
+  }, [fetchEntries])
   
   const saveEntry = async () => {
     try {

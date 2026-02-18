@@ -124,13 +124,14 @@ export default function EnhancedMoleculesPage() {
   // Initialize performance monitoring
   useEffect(() => {
     performanceMonitorRef.current.start()
-    const unsubscribe = performanceMonitorRef.current.onFPSChange((newFPS, newQuality) => {
+    const monitor = performanceMonitorRef.current
+    const unsubscribe = monitor.onFPSChange((newFPS, newQuality) => {
       setFPS(newFPS)
       setQualityLevel(newQuality)
     })
     
     return () => {
-      performanceMonitorRef.current.stop()
+      monitor.stop()
       unsubscribe()
     }
   }, [])
@@ -200,7 +201,7 @@ export default function EnhancedMoleculesPage() {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isVoiceListening, atoms, bonds]) // Added deps to refresh closure if needed
+  }, [])
 
   // Lock body scroll when modals are open
   useEffect(() => {
@@ -626,7 +627,7 @@ export default function EnhancedMoleculesPage() {
     }, 2000) // 2 second debounce
 
     return () => clearTimeout(timer)
-  }, [atoms, bonds])
+  }, [atoms, bonds, handleAnalyze])
 
   const handleValidate = () => {
     setShowValidation(true)

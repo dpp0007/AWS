@@ -41,7 +41,7 @@ export default function HotPlate({ temperature, isActive, tubePosition }: HotPla
             plateDiameter,
             position
         })
-    }, [isActive, temperature, tubePosition])
+    }, [isActive, temperature, tubePosition, plateDiameter, position])
 
     // Bubble spawning at 100°C+
     useEffect(() => {

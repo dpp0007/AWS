@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { Eye, EyeOff, Mail, Lock, ArrowRight, ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
@@ -73,7 +74,7 @@ export default function SignInPage() {
         <div className="text-center mb-8">
           <Link href="/" className="inline-block mb-6">
             <div className="flex items-center justify-center space-x-3">
-              <img src="/Assets/Main Logo.svg" alt="Elixra Logo" className="h-24 w-24" />
+              <Image src="/Assets/Main Logo.svg" alt="Elixra Logo" width={96} height={96} priority />
             </div>
           </Link>
           <h2 className="text-2xl font-bold text-elixra-charcoal dark:text-white mb-2">Welcome Back</h2>
@@ -159,7 +160,7 @@ export default function SignInPage() {
                 disabled={isLoading}
                 className="w-full flex items-center justify-center space-x-3 py-3 bg-white hover:bg-gray-50 text-gray-900 border border-gray-200 rounded-xl transition-all duration-300 font-medium disabled:opacity-50 shadow-sm hover:shadow-md"
               >
-                <img src="https://www.google.com/favicon.ico" alt="Google" className="h-5 w-5" />
+                <Image src="https://www.google.com/favicon.ico" alt="Google" width={20} height={20} />
                 <span>Sign in with Google</span>
               </button>
             </div>

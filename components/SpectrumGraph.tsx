@@ -140,7 +140,7 @@ export default function SpectrumGraph({
 
       return nearest
     },
-    [spectrum.peaks, viewport, dimensions]
+    [spectrum.peaks, viewport, dimensions, PADDING.left, PADDING.top]
   )
 
   // --- Interaction Handlers ---
@@ -224,7 +224,7 @@ export default function SpectrumGraph({
         }
       }
     },
-    [viewport, isDragging, dragStart, findNearestPeak, cursorMode, dimensions, spectrum.yMin, spectrum.yMax]
+    [viewport, isDragging, dragStart, findNearestPeak, cursorMode, dimensions, spectrum.yMin, spectrum.yMax, PADDING.left, PADDING.right, PADDING.top, PADDING.bottom, getGraphCoordinates]
   )
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -583,7 +583,7 @@ export default function SpectrumGraph({
         }
     })
 
-  }, [spectrum, comparisonSpectrum, viewport, selectedPeakId, dimensions])
+  }, [spectrum, comparisonSpectrum, viewport, selectedPeakId, dimensions, PADDING.bottom, PADDING.left, PADDING.right, PADDING.top, getGraphCoordinates])
 
   // Reset handler
   const handleResetZoom = () => {
